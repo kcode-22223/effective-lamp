@@ -11,22 +11,13 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Native Mac Asset Extraction
+    - name: Step 1 - Native Structure Map Extraction
       run: |
-        mkdir extracted_assets
-        # Clone the repository recursively to capture its required submodules
-        git clone https://github.com/bartoszj/acextract.git --recursive
-        cd acextract
-        
-        # Build using the project's native Makefile layout
-        make
-        cp acextract ../
-        cd ../
-        
-        # Execute the compiled binary to extract your original layout images cleanly
-        ./acextract -i Assets.car -o extracted_assets
+        mkdir extracted_raw
+        # Use native Apple CoreUI terminal utility to map the complete catalog footprint
+        assetutil --info Assets.car > extracted_raw/catalog.json
 
-    - name: Step 2 - Execute Python Swap
+    - name: Step 2 - Process Image Swapping
       run: python3 swap.py
 
     - name: Step 3 - Recompile Authentic Assets.car
