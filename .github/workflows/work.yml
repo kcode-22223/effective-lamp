@@ -1,4 +1,4 @@
-name: Replace Watermark Asset
+name: Precise Watermark Swap
 
 on:
   workflow_dispatch:
@@ -11,15 +11,28 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Generate Valid Asset Framework
+    - name: Step 1 - Native Mac Asset Extraction
+      run: |
+        mkdir extracted_assets
+        # Clone and compile a native command-line companion to safely read the file map
+        git clone https://github.com/bartoszj/acextract.git
+        cd acextract
+        swift build -c release
+        cp .build/release/acextract ../
+        cd ../
+        
+        # Execute the tool to unpack all original graphics cleanly
+        ./acextract -i Assets.car -o extracted_assets
+
+    - name: Step 2 - Execute Python Swap
       run: python3 swap.py
 
-    - name: Step 2 - Recompile New Assets.car
+    - name: Step 3 - Recompile Authentic Assets.car
       run: |
         mkdir final_output
         xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0
 
-    - name: Step 3 - Upload Modified Car File
+    - name: Step 4 - Upload Modified Car File
       uses: actions/upload-artifact@v4
       with:
         name: Modified-Assets-File
