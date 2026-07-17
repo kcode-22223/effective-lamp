@@ -16,8 +16,8 @@ jobs:
         mkdir extracted_raw
         mkdir Assets.xcassets
         
-        # Read the internal layout of the original Assets.car file
-        sudo assetutil --extract extracted_raw/catalog.json Assets.car
+        # Read the internal layout of the original Assets.car file safely
+        assetutil --info Assets.car > extracted_raw/catalog.json
         
         # Run Python to find the asset entries and swap the watermark image
         python3 -c "
@@ -49,6 +49,7 @@ jobs:
                             with open(f'{imageset_dir}/{name}.png', 'wb') as f_dummy:
                                 f_dummy.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x01\x00\x00\x0c\x00\x01\x04\x1e\xe3\xa8\x00\x00\x00\x00IEND\xaeB`\x82')
         "
+
 
     - name: Step 2 - Recompile New Assets.car
       run: |
