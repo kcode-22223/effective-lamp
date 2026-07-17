@@ -23,7 +23,7 @@ ALL_DISCOVERED_NAMES = [
 
 os.makedirs('Assets.xcassets', exist_ok=True)
 
-print("--- REPLACING SINGULAR WATERMARK ASSET ---")
+print("--- REPLACING SINGULAR WATERMARK ASSET WITH STABLE PLACEHOLDERS ---")
 
 for name in ALL_DISCOVERED_NAMES:
     imageset_dir = f'Assets.xcassets/{name}.imageset'
@@ -45,6 +45,23 @@ for name in ALL_DISCOVERED_NAMES:
         else:
             print("Error: watermark.png missing from repository root!")
     else:
-        # Keeps a safe placeholder for other entries so the compiler generates a valid file
+        # Create a genuinely valid 2x2 transparent PNG file using python to satisfy actool
+        import zlib
+        import struct
+
+        def make_valid_png():
+            # Standard PNG signature
+            png = b'\x89PNG\r\n\x1a\n'
+            # IHDR chunk: 2x2 pixels, 8-bit color, Truecolor with Alpha
+            ihdr_data = struct.pack('!IIBBBBB', 2, 2, 8, 6, 0, 0, 0)
+            png += struct.pack('!I', 13) + b'IHDR' + ihdr_data + struct.pack('!I', zlib.crc32(b'IHDR' + ihdr_data))
+            # IDAT chunk: empty pixel data
+            raw_data = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+            idat_data = zlib.compress(raw_data)
+            png += struct.pack('!I', len(idat_data)) + b'IDAT' + idat_data + struct.pack('!I', zlib.crc32(b'IDAT' + idat_data))
+            # IEND chunk
+            png += struct.pack('!I', 0) + b'IEND' + struct.pack('!I', zlib.crc32(b'IEND'))
+            return png
+
         with open(f'{imageset_dir}/{name}.png', 'wb') as f_dummy:
-            f_dummy.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x01\x00\x00\x0c\x00\x01\x04\x1e\xe3\xa8\x00\x00\x00\x00IEND\xaeB`\x82')
+            f_dummy.write(make_valid_png())
