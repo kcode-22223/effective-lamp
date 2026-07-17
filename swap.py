@@ -1,70 +1,50 @@
 import os
 import shutil
 import json
-import re
-import struct
-import zlib
 
-os.makedirs('Assets.xcassets', exist_ok=True)
-all_discovered_names = set()
+extracted_dir = 'extracted_assets'
+assets_catalog = 'Assets.xcassets'
 
-# 1. Scan the binary of your Assets.car to harvest all 152 true internal asset names
-if os.path.exists('Assets.car'):
-    with open('Assets.car', 'rb') as f:
-        content = f.read()
-        words = re.findall(b'[a-zA-Z0-9_.-]{3,100}', content)
-        for w in words:
-            try:
-                name_str = w.decode('utf-8')
-                # Filter out standard system words, keeping structural asset names
-                if any(x in name_str.lower() for x in ['logo', 'watermark', 'btn', 'icon', 'bg', 'image', 'asset', 'view', 'cell']):
-                    clean_name = name_str.split('.')[0].split('@')[0]
-                    all_discovered_names.add(clean_name)
-            except:
-                pass
+os.makedirs(assets_catalog, exist_ok=True)
 
-# Safety fallbacks for the crucial known keys from the log
-known_keys = ['watermark', 'watermark-empty', 'watermark-live4-restream', 'restream-live4-logo', 'restream-round-logo', 'logo', 'logo-red-black', 'gopro_logo', 'session_logo', 'hero3_logo', 'hero5_logo', 'live4_logo64', 'vg_logo', 'vg-logo-small', 'hplus_logo']
-for key in known_keys:
-    all_discovered_names.add(key)
+# Look through the real assets unpacked by acextract
+if os.path.exists(extracted_dir):
+    print("--- SCANNING GENUINE IMAGES FROM CAR ---")
+    for root, dirs, files in os.walk(extracted_dir):
+        for filename in files:
+            if filename.lower().endswith('.png'):
+                # Isolate the clean asset key
+                base_name = os.path.splitext(filename)[0]
+                clean_name = base_name.split('@')[0]
+                
+                imageset_dir = f'{assets_catalog}/{clean_name}.imageset'
+                os.makedirs(imageset_dir, exist_ok=True)
+                
+                # IF it matches the watermark target, drop in your custom image
+                if clean_name == 'watermark':
+                    if os.path.exists('watermark.png'):
+                        print(f"Injecting replacement -> {filename}")
+                        shutil.copy('watermark.png', f'{imageset_dir}/{filename}')
+                else:
+                    # Otherwise, copy the original file over completely untouched
+                    print(f"Preserving original -> {filename}")
+                    shutil.copy(os.path.join(root, filename), f'{imageset_dir}/{filename}')
 
-print(f"--- GENERATING STABLE STRUCTURES FOR {len(all_discovered_names)} ASSETS ---")
-
-# Function to construct a structurally perfect 2x2 transparent PNG that passes Apple's validation
-def make_valid_png():
-    png = b'\x89PNG\r\n\x1a\n'
-    ihdr_data = struct.pack('!IIBBBBB', 2, 2, 8, 6, 0, 0, 0)
-    png += struct.pack('!I', 13) + b'IHDR' + ihdr_data + struct.pack('!I', zlib.crc32(b'IHDR' + ihdr_data))
-    raw_data = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-    idat_data = zlib.compress(raw_data)
-    png += struct.pack('!I', len(idat_data)) + b'IDAT' + idat_data + struct.pack('!I', zlib.crc32(b'IDAT' + idat_data))
-    png += struct.pack('!I', 0) + b'IEND' + struct.pack('!I', zlib.crc32(b'IEND'))
-    return png
-
-valid_dummy_png = make_valid_png()
-
-# 2. Build the exact compilation hierarchy 
-for name in all_discovered_names:
-    imageset_dir = f'Assets.xcassets/{name}.imageset'
-    os.makedirs(imageset_dir, exist_ok=True)
-    
-    contents = {
-      'images': [{'idiom': 'universal', 'filename': f'{name}.png'}],
-      'info': {'version': 1, 'author': 'xcode'}
-    }
-    with open(f'{imageset_dir}/Contents.json', 'w') as jf:
-        json.dump(contents, jf)
-    
-    # Check if this asset is the specific target watermark
-    if name == 'watermark':
-        if os.path.exists('watermark.png'):
-            print("Found watermark! Swapping in your custom image...")
-            shutil.copy('watermark.png', f'{imageset_dir}/{name}.png')
-        else:
-            print("Error: watermark.png was not found in the root directory.")
-    else:
-        # Write the perfectly valid dummy file to satisfy the compiler pipeline
-        with open(f'{imageset_dir}/{name}.png', 'wb') as f_dummy:
-            f_dummy.write(valid_dummy_png)
-
-print("Mapping sequence complete.")
+    # Create the standard Apple configurations required for compilation
+    for folder in os.listdir(assets_catalog):
+        folder_path = f'{assets_catalog}/{folder}'
+        if os.path.isdir(folder_path):
+            found_files = [f for f in os.listdir(folder_path) if f != 'Contents.json']
+            if found_files:
+                images_entry = []
+                for f in found_files:
+                    scale = '1x'
+                    if '@2x' in f: scale = '2x'
+                    elif '@3x' in f: scale = '3x'
+                    images_entry.append({'idiom': 'universal', 'scale': scale, 'filename': f})
+                
+                contents = {'images': images_entry, 'info': {'version': 1, 'author': 'xcode'}}
+                with open(f'{folder_path}/Contents.json', 'w') as jf:
+                    json.dump(contents, jf)
+else:
+    print("Error: Native extraction directory not found.")
