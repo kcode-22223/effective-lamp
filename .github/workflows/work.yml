@@ -22,8 +22,8 @@ jobs:
     - name: Step 3 - Recompile Authentic Assets.car
       run: |
         mkdir final_output
-        # Fixed the format to binary1 and pointed directly to the root folder layout
-        xcrun actool ./Assets.xcassets --compile ./final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary1
+        # Added the partial info plist tracking flag to force file output Generation
+        xcrun actool ./Assets.xcassets --compile ./final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary1 --output-partial-info-plist ./final_output/partial.plist
 
     - name: Step 4 - Upload Modified Car File
       uses: actions/upload-artifact@v4
