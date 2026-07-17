@@ -1,8 +1,9 @@
 import os
 import shutil
+import json
 
-# Target list found directly from your log results
-TARGET_NAMES = [
+# The complete list of names discovered inside your specific file
+ALL_DISCOVERED_NAMES = [
     'watermark', 
     'watermark-empty', 
     'watermark-live4-restream', 
@@ -20,12 +21,11 @@ TARGET_NAMES = [
     'hplus_logo'
 ]
 
-# Ensure asset container exists
 os.makedirs('Assets.xcassets', exist_ok=True)
 
-print("--- INJECTING TARGETED GRAPHICS ---")
+print("--- REPLACING SINGULAR WATERMARK ASSET ---")
 
-for name in TARGET_NAMES:
+for name in ALL_DISCOVERED_NAMES:
     imageset_dir = f'Assets.xcassets/{name}.imageset'
     os.makedirs(imageset_dir, exist_ok=True)
     
@@ -35,14 +35,16 @@ for name in TARGET_NAMES:
       'info': {'version': 1, 'author': 'xcode'}
     }
     with open(f'{imageset_dir}/Contents.json', 'w') as jf:
-        import json
         json.dump(contents, jf)
     
-    # Inject your new watermark image into the target slot
-    if os.path.exists('watermark.png'):
-        print(f"Successfully modified -> {name}")
-        shutil.copy('watermark.png', f'{imageset_dir}/{name}.png')
+    # ONLY replace the precise "watermark" image slot
+    if name == 'watermark':
+        if os.path.exists('watermark.png'):
+            print("Target found: Injecting custom image into 'watermark'...")
+            shutil.copy('watermark.png', f'{imageset_dir}/{name}.png')
+        else:
+            print("Error: watermark.png missing from repository root!")
     else:
-        # Fallback empty image byte string just in case
+        # Keeps a safe placeholder for other entries so the compiler generates a valid file
         with open(f'{imageset_dir}/{name}.png', 'wb') as f_dummy:
             f_dummy.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x01\x00\x00\x0c\x00\x01\x04\x1e\xe3\xa8\x00\x00\x00\x00IEND\xaeB`\x82')
