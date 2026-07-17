@@ -11,25 +11,16 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Extract Manifest and Swap Watermark
-      run: |
-        mkdir extracted_raw
-        mkdir Assets.xcassets
-        
-        # Read the internal layout safely
-        assetutil --info Assets.car > extracted_raw/catalog.json
-        
-        # Run the isolated script file
-        python3 swap.py
+    - name: Step 1 - Generate Valid Asset Framework
+      run: python3 swap.py
 
     - name: Step 2 - Recompile New Assets.car
       run: |
-        # This creates the configuration files we need
-        echo "Ready to bundle layout structure"
+        mkdir final_output
+        xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0
 
-    - name: Step 3 - Download Layout Bundle
+    - name: Step 3 - Upload Modified Car File
       uses: actions/upload-artifact@v4
       with:
-        name: App-Image-Layout
-        path: All_Original_Images/
-
+        name: Modified-Assets-File
+        path: final_output/Assets.car
