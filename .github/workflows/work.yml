@@ -14,7 +14,6 @@ jobs:
     - name: Step 1 - Native Structural Footprint Extraction
       run: |
         mkdir extracted_raw
-        # Map the true database positions of the original 23.6MB binary layout natively
         assetutil --info Assets.car > extracted_raw/catalog.json
 
     - name: Step 2 - Process Image Swapping
@@ -23,8 +22,8 @@ jobs:
     - name: Step 3 - Recompile Authentic Assets.car
       run: |
         mkdir final_output
-        # Target building the complete compiled binary archive package
-        xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary
+        # Fixed the format to binary1 and pointed directly to the root folder layout
+        xcrun actool ./Assets.xcassets --compile ./final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary1
 
     - name: Step 4 - Upload Modified Car File
       uses: actions/upload-artifact@v4
