@@ -11,21 +11,10 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Native Structural Footprint Extraction
-      run: |
-        mkdir extracted_raw
-        assetutil --info Assets.car > extracted_raw/catalog.json
-
-    - name: Step 2 - Process Image Swapping
+    - name: Step 1 - Execute Python Binary Patching
       run: python3 swap.py
 
-    - name: Step 3 - Recompile Authentic Assets.car
-      run: |
-        mkdir final_output
-        # Added the partial info plist tracking flag to force file output Generation
-        xcrun actool ./Assets.xcassets --compile ./final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary1 --output-partial-info-plist ./final_output/partial.plist
-
-    - name: Step 4 - Upload Modified Car File
+    - name: Step 2 - Upload Authentic Modified File
       uses: actions/upload-artifact@v4
       with:
         name: Modified-Assets-File
