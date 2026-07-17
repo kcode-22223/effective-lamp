@@ -11,10 +11,10 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Native Structure Map Extraction
+    - name: Step 1 - Native Structural Footprint Extraction
       run: |
         mkdir extracted_raw
-        # Use native Apple CoreUI terminal utility to map the complete catalog footprint
+        # Map the true database positions of the original 23.6MB binary layout natively
         assetutil --info Assets.car > extracted_raw/catalog.json
 
     - name: Step 2 - Process Image Swapping
@@ -23,7 +23,8 @@ jobs:
     - name: Step 3 - Recompile Authentic Assets.car
       run: |
         mkdir final_output
-        xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0
+        # Target building the complete compiled binary archive package
+        xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0 --output-format binary
 
     - name: Step 4 - Upload Modified Car File
       uses: actions/upload-artifact@v4
