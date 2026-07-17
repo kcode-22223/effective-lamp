@@ -14,14 +14,16 @@ jobs:
     - name: Step 1 - Native Mac Asset Extraction
       run: |
         mkdir extracted_assets
-        # Clone and compile a native command-line companion to safely read the file map
-        git clone https://github.com/bartoszj/acextract.git
+        # Clone the repository recursively to capture its required submodules
+        git clone https://github.com/bartoszj/acextract.git --recursive
         cd acextract
-        swift build -c release
-        cp .build/release/acextract ../
+        
+        # Build using the project's native Makefile layout
+        make
+        cp acextract ../
         cd ../
         
-        # Execute the tool to unpack all original graphics cleanly
+        # Execute the compiled binary to extract your original layout images cleanly
         ./acextract -i Assets.car -o extracted_assets
 
     - name: Step 2 - Execute Python Swap
