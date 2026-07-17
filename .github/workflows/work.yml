@@ -1,0 +1,62 @@
+name: Replace Watermark Asset
+
+on:
+  workflow_dispatch: # Allows you to run this manually with a single click
+
+jobs:
+  modify-car:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout Repository Files
+      uses: actions/checkout@v4
+
+    - name: Step 1 - Extract Manifest and Swap Watermark
+      run: |
+        mkdir extracted_raw
+        mkdir Assets.xcassets
+        
+        # Read the internal layout of the original Assets.car file
+        sudo assetutil --extract extracted_raw/catalog.json Assets.car
+        
+        # Run Python to find the asset entries and swap the watermark image
+        python3 -c "
+        import json, os, shutil
+        
+        if os.path.exists('extracted_raw/catalog.json'):
+            with open('extracted_raw/catalog.json') as f:
+                data = json.load(f)
+                for item in data:
+                    if 'Name' in item and ('RenditionType' in item and item['RenditionType'] == 'Bitmap'):
+                        name = item['Name']
+                        imageset_dir = f'Assets.xcassets/{name}.imageset'
+                        os.makedirs(imageset_dir, exist_ok=True)
+                        
+                        # Generate the required Apple asset metadata
+                        contents = {
+                          'images': [{'idiom': 'universal', 'filename': f'{name}.png'}],
+                          'info': {'version': 1, 'author': 'xcode'}
+                        }
+                        with open(f'{imageset_dir}/Contents.json', 'w') as jf:
+                            json.dump(contents, jf)
+                        
+                        # Check if this asset is the watermark
+                        if name == 'watermark' and os.path.exists('watermark.png'):
+                            print('Found watermark! Injecting custom image...')
+                            shutil.copy('watermark.png', f'{imageset_dir}/{name}.png')
+                        else:
+                            # Writes a safe, invisible 1x1 placeholder so the app doesn't crash on missing files
+                            with open(f'{imageset_dir}/{name}.png', 'wb') as f_dummy:
+                                f_dummy.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x01\x00\x00\x0c\x00\x01\x04\x1e\xe3\xa8\x00\x00\x00\x00IEND\xaeB`\x82')
+        "
+
+    - name: Step 2 - Recompile New Assets.car
+      run: |
+        mkdir final_output
+        xcrun actool Assets.xcassets --compile final_output --platform iphoneos --minimum-deployment-target 15.0
+
+    - name: Step 3 - Upload Modified Car File
+      uses: actions/upload-artifact@v4
+      with:
+        name: Modified-Assets-File
+        path: final_output/Assets.car
