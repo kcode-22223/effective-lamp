@@ -1,46 +1,32 @@
-name: Stream Real macOS GUI to Browser
+name: Stream Real Samra GUI to Browser
 on: [workflow_dispatch]
 
 jobs:
-  launch-desktop:
+  launch-samra-desktop:
     runs-on: macos-14
     steps:
       - name: Checkout Repository Files
         uses: actions/checkout@v4
 
-      - name: Download Asset Editing Tools
+      - name: Download and Install Samra v1.4.1
         run: |
-          # Downloads ThemeEngine
-          curl -L -o ThemeEngine.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
-          unzip ThemeEngine.zip -d /Applications/ || true
-          
-          # Downloads Samra as a backup option
-          curl -L -o Samra.zip https://github.com
+          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
-      - name: Install and Start Web Desktop Server
+      - name: Configure Built-in macOS VNC Server
         run: |
-          # Installs an open-source visual frame server on the runner
-          brew install macvnc tightvnc-viewer || true
-          
-          # Sets a temporary password for your connection
-          mkdir -p ~/.vnc
-          echo "password123" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
-          
-          # Start the macOS desktop screen-sharing process
+          # Sets up a temporary security credential for the session connection
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
             -clientopts -setvncpasswd -vncpasswd password123 \
             -restart -agent -privs -all
 
-      - name: Create Secure Temporary Web Tunnel
+      - name: Launch Web Proxy Display Tunnel
         run: |
-          # Uses loophole or pinggy to expose the Mac desktop interface over a public HTTPS URL
           echo "=========================================================="
-          echo "👉 CLICK THE URL BELOW TO OPEN THE MACOS GUI IN YOUR BROWSER:"
+          echo "👉 CLICK THE SECURE URL BELOW TO CONTROL THE CLOUD MAC:"
           echo "=========================================================="
           
-          # Create a secure reverse proxy to port 5900 (macOS VNC)
+          # Creates a secure reverse-proxy path to port 5900 (macOS VNC Stream)
           curl -s https://pinggy.io | sh -s -- -p 5900
