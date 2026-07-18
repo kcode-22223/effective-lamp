@@ -26,10 +26,10 @@ jobs:
           cd tool-source
           make
 
-      # Step 4: Run the freshly compiled tool natively 
+      # Step 4: Run the compiled executable binary file natively (acextract.bin)
       - name: Execute Native Extraction
         run: |
-          ./tool-source/acextract -i Assets.car -o ExtractedAssets
+          ./tool-source/acextract.bin -i Assets.car -o ExtractedAssets
 
       # Step 5: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
