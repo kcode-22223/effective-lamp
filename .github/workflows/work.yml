@@ -1,4 +1,4 @@
-name: Extract Assets via CoreUI Script
+name: Extract Assets via Native CoreUI
 
 on:
   push:
@@ -14,91 +14,79 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Extract files using a native inline Swift script
-      # This utilizes macOS CoreUI private libraries natively without external apps
-      - name: Native Extraction Script
+      # 2. Compile and run an inline Objective-C script
+      # Objective-C handles private framework dynamic linkage perfectly
+      - name: Extract Images Natively
         run: |
           mkdir -p extracted_images
           
-          cat << 'EOF' > extract.swift
-          import Foundation
+          cat << 'EOF' > extract.m
+          #import <Foundation/Foundation.h>
+          #import <AppKit/AppKit.h>
 
-          // Dynamically link Apple's private CoreUI framework
-          guard let bundle = Bundle(path: "/System/Library/PrivateFrameworks/CoreUI.framework"), bundle.load() else {
-              print("Error: Failed to load CoreUI framework.")
-              exit(1)
-          }
+          // Declare private CoreUI class interfaces so the compiler accepts them
+          @interface CUICatalog : NSObject
+          - (id)initWithURL:(NSURL *)url error:(NSError **)error;
+          - (NSArray *)allAssetNames;
+          - (id)imageWithName:(NSString *)name scaleFactor:(double)scale;
+          @end
 
-          // Reference the underlying private catalog storage class
-          guard let CUICatalogClass = NSClassFromString("CUICatalog") as? NSObject.Type else {
-              print("Error: Could not locate CUICatalog class structure.")
-              exit(1)
-          }
+          @interface CUINamedImage : NSObject
+          - (CGImageRef)image;
+          @end
 
-          let carPath = FileManager.default.currentDirectoryPath + "/Assets.car"
-          let outputPath = FileManager.default.currentDirectoryPath + "/extracted_images"
+          int main(int argc, const char * argv[]) {
+              @autoreleasepool {
+                  // Dynamically load Apple's native CoreUI framework
+                  NSBundle *bundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/CoreUI.framework"];
+                  if (![bundle load]) {
+                      NSLog(@"Error: Failed to load CoreUI private framework.");
+                      return 1;
+                  }
 
-          print("Targeting file source: \(carPath)")
+                  NSString *currentDir = [[NSFileManager defaultManager] currentDirectoryPath];
+                  NSURL *carURL = [NSURL fileURLWithPath:[currentDir stringByAppendingPathComponent:@"Assets.car"]];
+                  NSString *outputPath = [currentDir stringByAppendingPathComponent:@"extracted_images"];
 
-          do {
-              // Instantiate the catalog file handler using runtime selector logic
-              let catalogAlloc = CUICatalogClass.alloc()
-              let initSelector = NSSelectorFromString("initWithURL:error:")
-              
-              // Invoke initWithURL via method signatures
-              typealias InitFunc = @convention(c) (NSObject, Selector, URL, UnsafeMutablePointer<NSError?>?) -> NSObject?
-              let imp = catalogAlloc.methodForSelector(initSelector)
-              let initMethod = unsafeBitCast(imp, to: InitFunc.self)
-              
-              var error: NSError?
-              guard let catalog = initMethod(catalogAlloc, initSelector, URL(fileURLWithPath: carPath), &error) else {
-                  print("Error: Failed to open Asset catalog file: \(error?.localizedDescription ?? "Unknown")")
-                  exit(1)
-              }
+                  NSLog(@"Reading asset inventory from: %@", carURL.path);
 
-              // Extract all matching key visual structural assets
-              let allAssetNamesSelector = NSSelectorFromString("allAssetNames")
-              typealias AssetNamesFunc = @convention(c) (NSObject, Selector) -> [String]
-              let namesImp = catalog.methodForSelector(allAssetNamesSelector)
-              let namesMethod = unsafeBitCast(namesImp, to: AssetNamesFunc.self)
-              let names = namesMethod(catalog, allAssetNamesSelector)
+                  NSError *error = nil;
+                  CUICatalog *catalog = [[NSClassFromString(@"CUICatalog") alloc] initWithURL:carURL error:&error];
+                  if (!catalog) {
+                      NSLog(@"Error: Failed to open Asset catalog file: %@", error.localizedDescription);
+                      return 1;
+                  }
 
-              print("Found \(names.count) assets to process.")
+                  NSArray *names = [catalog allAssetNames];
+                  NSLog(@"Discovered %lu assets within catalog file.", (unsigned long)names.count);
 
-              // Fetch image components using the class image lookup structures
-              let imageWithNameSelector = NSSelectorFromString("imageWithName:scaleFactor:")
-              typealias ImageWithNameFunc = @convention(c) (NSObject, Selector, String, CGFloat) -> NSObject?
-              let imageImp = catalog.methodForSelector(imageWithNameSelector)
-              let imageMethod = unsafeBitCast(imageImp, to: ImageWithNameFunc.self)
-
-              for name in names {
-                  if let cuicgImage = imageMethod(catalog, imageWithNameSelector, name, 2.0) {
-                      let imageSelector = NSSelectorFromString("image")
-                      let cgImageImp = cuicgImage.methodForSelector(imageSelector)
-                      typealias CGImageFunc = @convention(c) (NSObject, Selector) -> CGImage?
-                      let cgImageMethod = unsafeBitCast(cgImageImp, to: CGImageFunc.self)
-                      
-                      if let cgImage = cgImageMethod(cuicgImage, imageSelector) {
-                          #if canImport(AppKit)
-                          import AppKit
-                          let size = NSMakeSize(CGFloat(cgImage.width), CGFloat(cgImage.height))
-                          let rep = NSBitmapImageRep(cgImage: cgImage)
-                          if let data = rep.representation(using: .png, properties: [:]) {
-                              let fileURL = URL(fileURLWithPath: outputPath).appendingPathComponent("\(name).png")
-                              try? data.write(to: fileURL)
-                              print("Successfully extracted asset file: \(name).png")
+                  for (NSString *name in names) {
+                      // Fetch asset structures at 2x retina asset scale factor
+                      id namedImage = [catalog imageWithName:name scaleFactor:2.0];
+                      if (namedImage && [namedImage respondsToSelector:@selector(image)]) {
+                          CGImageRef cgImage = (CGImageRef)[namedImage performSelector:@selector(image)];
+                          if (cgImage) {
+                              NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
+                              NSData *data = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                              
+                              if (data) {
+                                  NSString *fileDest = [outputPath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.png", name]];
+                                  [data writeToFile:fileDest atomically:YES];
+                                  NSLog(@"Successfully extracted: %@.png", name);
+                              }
                           }
-                          #endif
                       }
                   }
               }
-          } catch {
-              print("Execution error encountered: \(error)")
+              return 0;
           }
           EOF
 
-          # Execute the standalone compilation script environment
-          xcrun swift extract.swift
+          # Compile the script with standard foundation frameworks
+          clang -framework Foundation -framework AppKit -o extract_tool extract.m
+          
+          # Run the extraction binary
+          ./extract_tool
 
       # 3. Save your extracted images so you can download them from the UI
       - name: Upload Extracted Images Artifact
