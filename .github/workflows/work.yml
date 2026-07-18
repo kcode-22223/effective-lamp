@@ -7,28 +7,47 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Copy your own repository files (Assets.car) into the runner workspace
+      # Step 1: Clone your own repository files (Assets.car) into the runner workspace
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Download and unpack the prebuilt zip directly
-      - name: Fetch Pre-Compiled Tinkerer Tool
+      # Step 2: Use Python to talk directly to the macOS core graphics system engine
+      - name: Extract Images Natively via CoreUI
         run: |
           mkdir ExtractedAssets
-          curl -L "https://github.com" -o tool.zip
-          unzip tool.zip
+          python3 - << 'EOF'
+          import ctypes
+          import os
+          import sys
 
-      # Step 3: Execute act from its true home directory so it finds ACS.framework perfectly
-      - name: Execute Native Extraction via act
-        run: |
-          ./"Asset Catalog Tinkerer.app"/Contents/MacOS/act export -i Assets.car -o ExtractedAssets
+          # Load macOS's internal proprietary framework engine directly
+          try:
+              coreui = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/CoreUI.framework/CoreUI')
+              
+              # Map Apple's private C decoding signatures
+              coreui.CUIUnpackThemeStore.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+              coreui.CUIUnpackThemeStore.restype = ctypes.c_bool
+              
+              car_file = b"Assets.car"
+              out_directory = b"ExtractedAssets"
+              
+              print("Decoding proprietary asset catalog trees natively...")
+              if coreui.CUIUnpackThemeStore(car_file, out_directory):
+                  print("Success! Every image asset has been safely extracted.")
+              else:
+                  print("CoreUI engine returned a processing failure.")
+                  sys.exit(1)
+          except Exception as e:
+              print(f"System Framework Binding Error: {e}")
+              sys.exit(1)
+          EOF
 
-      # Step 4: Package everything into a zip bundle
+      # Step 3: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the package onto your GitHub web interface dashboard
+      # Step 4: Post the package onto your GitHub web interface dashboard
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
