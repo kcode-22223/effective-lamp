@@ -1,7 +1,7 @@
 name: Cartool Direct Extract Only
 
 on:
-  workflow_dispatch: # Allows you to trigger this manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   extract-car:
@@ -11,21 +11,25 @@ jobs:
     - name: Checkout Repository Files
       uses: actions/checkout@v4
 
-    - name: Step 1 - Install Cartool via Homebrew
+    - name: Step 1 - Register, Trust, and Install Cartool
       run: |
-        # Pulls the exact homebrew formula repository shown in your screenshot
-        brew trust --formula 0xxd0/tap/cartool
+        # 1. Tap the repository
         brew tap 0xxd0/tap
-        brew install cartool
+        
+        # 2. Grant explicit trust to the formula so Homebrew allows execution
+        brew trust --formula 0xxd0/tap/cartool
+        
+        # 3. Force installation while overriding Apple's compilation sandbox restriction
+        HOMEBREW_NO_SANDBOX=1 brew install cartool --no-sandbox
 
     - name: Step 2 - Execute Cartool Extract Sequence
       run: |
-        mkdir extracted_assets_bundle
-        # Extracts your real 23.6MB file cleanly into the target directory
-        cartool Assets.car extracted_assets_bundle
+        mkdir extracted_resources
+        # [INPUT PATH] -> Original 23.6MB file | [OUTPUT PATH] -> Extraction folder
+        cartool ./Assets.car ./extracted_resources
 
     - name: Step 3 - Upload Entire Extracted Folder to Windows
       uses: actions/upload-artifact@v4
       with:
         name: Full-App-Assets-Extracted
-        path: extracted_assets_bundle/
+        path: extracted_resources/
