@@ -14,13 +14,13 @@ jobs:
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
-      - name: Execute Native Data Injection
+      - name: Execute Robust Timing-Safe GUI Automation
         run: |
           killall Samra || true
           open /Applications/Samra.app
           sleep 5
 
-          # Copy the binary file destination to clipboard
+          # Copy original Assets.car path to system clipboard
           echo -n "$PWD/Assets.car" | pbcopy
 
           osascript -e '
@@ -29,68 +29,65 @@ jobs:
                 set frontmost to true
                 delay 1.5
                 
-                # 1. Open the original .car file using the welcome layout interface
-                key code 48 -- (Tab over to highlight "Open Assets File")
+                # 1. Clear the Welcome Screen
+                key code 48 -- (Press Tab to highlight "Open Assets File")
                 delay 0.5
                 key code 49 -- (Press Spacebar to click it)
                 delay 2
                 
+                # 2. Paste and open the original Assets.car file
                 keystroke "G" using {command down, shift down}
                 delay 2
-                keystroke "v" using command down -- (Paste original .car location)
-                delay 2
-                key code 36 -- (Press Enter to confirm location)
+                keystroke "v" using command down -- (Paste the catalog path)
                 delay 1.5
-                key code 36 -- (Press Enter to open file)
+                key code 36 -- (First Enter: Accept the path text)
+                delay 1.0 -- Vital delay for layout transition
+                key code 36 -- (Second Enter: Submit the dialog and open)
                 
-                # Wait for the catalog array grid to populate completely
-                delay 10 
+                # Allow ample time for Samra to index a massive asset binary
+                delay 12 
 
-                # 2. Query and isolate the exact image row using search
+                # 3. Filter down to the watermark element
                 tell window 1
                   keystroke "f" using command down
                   delay 1.5
                   keystroke "watermark"
-                  delay 4 -- Give search time to isolate the watermark entry
+                  delay 4 -- Give search filtering time to settle
 
-                  # Navigate focus to the filtered result row
+                  # Move focus out of search field and onto the filtered row item
                   key code 48 -- (Press Tab)
                   delay 1
-                  key code 49 -- (Press Spacebar to highlight the target row element)
+                  key code 49 -- (Press Spacebar to highlight the target watermark row)
                   delay 2
+
+                  # Tab twice to focus onto the "Edit" button inside the right pane
+                  key code 48 -- (Press Tab)
+                  delay 0.5
+                  key code 48 -- (Press Tab)
+                  delay 0.5
+                  key code 49 -- (Press Spacebar to click Edit)
+                  delay 3 -- Wait for the file picker panel sheet to completely deploy
                 end tell
 
-                # 3. USE DIRECT DATA PATH ASSIGNMENT (Bypasses the buggy file picker sheet entirely)
-                # Instead of hitting Edit and risking window confusion, copy the replacement image path 
-                # and paste it while the item row is selected.
+                # 4. Inject the new replacement image path via Clipboard
                 do shell script "echo -n " & quoted form of "'"$PWD"'/replacement_watermark.png" & " | pbcopy"
                 delay 1.5
 
-                # Click Edit to open the configuration sheet
-                tell window 1
-                  key code 48 -- (Press Tab)
-                  delay 0.5
-                  key code 48 -- (Press Tab)
-                  delay 0.5
-                  key code 49 -- (Press Spacebar to trigger Edit modal panel)
-                  delay 3
-                end tell
-
-                # Paste the new path into the native system dialog panel cleanly
+                # Open manual folder location path panel inside picker sheet
                 keystroke "G" using {command down, shift down}
                 delay 2
-                keystroke "v" using command down -- (Paste the target replacement path)
-                delay 2.5
-                key code 36 -- (Confirm the text path selection)
-                delay 2
-                
-                # Use a forced alternative click selector (Keystroke Enter) to lock down the sheet submission
-                key code 36
-                delay 6 -- Extended hold to ensure data blocks rewrite into the binary file completely
+                keystroke "v" using command down -- (Paste the watermark image path)
+                delay 2.0 -- Essential pause: Let macOS catch up to the pasted text block
 
-                # 4. Force a clean database compile save
+                # CRITICAL SEPARATION DELEYS FOR SELECTION PROMPT
+                key code 36 -- (First Enter: Commits text entry array into directory navigation)
+                delay 1.5 -- Crucial pause so macOS shifts visual focus out of the input pane
+                key code 36 -- (Second Enter: Actively submits the target file selection choice)
+                delay 6 -- Buffer window allowing Samra to safely rebuild internal data tables
+
+                # 5. Save the updated binary layout
                 keystroke "s" using command down
-                delay 4
+                delay 3
               end tell
             end tell
           '
