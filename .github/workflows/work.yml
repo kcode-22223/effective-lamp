@@ -11,17 +11,22 @@ jobs:
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Ensure the tool is installed natively via Homebrew Cask
+      # Step 2: Download and link the verified app bundle via Homebrew
       - name: Install Tool via Homebrew
         run: |
           mkdir ExtractedAssets
           brew install --cask asset-catalog-tinkerer
 
-      # Step 3: Run the extraction using the tool's exact required argument syntax
+      # Step 3: Call the tool using its exact strict argument syntax
       - name: Execute Native Extraction via act
         run: |
-          # Rearranged to match: act --input <input> <subcommand>
-          "/Applications/Asset Catalog Tinkerer.app/Contents/MacOS/act" --input Assets.car export ExtractedAssets
+          # Exact syntax match: act --input <file> export
+          "/Applications/Asset Catalog Tinkerer.app/Contents/MacOS/act" --input Assets.car export
+          
+          # Move the unpacked image assets out of the root folder into your target directory
+          mv Assets/*.png ExtractedAssets/ 2>/dev/null || true
+          mv Assets/*.jpg ExtractedAssets/ 2>/dev/null || true
+          mv Assets/*.jpeg ExtractedAssets/ 2>/dev/null || true
 
       # Step 4: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
