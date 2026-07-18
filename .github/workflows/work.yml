@@ -1,4 +1,4 @@
-name: Extract Assets via Native CoreUI
+name: Rebuild Custom Assets via Manifest & Zip
 
 on:
   push:
@@ -6,99 +6,122 @@ on:
   workflow_dispatch:
 
 jobs:
-  extract:
+  build-car:
     runs-on: macos-latest
 
     steps:
-      # 1. Pull down your repository code containing Assets.car
+      # 1. Pull down your repository code containing catalog_manifest.json and modified_images.zip
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Compile and run an inline Objective-C script
-      # Replaces 'allAssetNames' with 'allImageNames' to align with modern CoreUI signatures
-      - name: Extract Images Natively
+      # 2. Unzip your updated images into a clean working directory
+      - name: Unpack Modified Images
         run: |
-          mkdir -p extracted_images
-          
-          cat << 'EOF' > extract.m
-          #import <Foundation/Foundation.h>
-          #import <AppKit/AppKit.h>
+          mkdir -p working_images_folder
+          if [ ! -f "modified_images.zip" ]; then
+            echo "Error: modified_images.zip not found in the root of the repository!"
+            exit 1
+          fi
+          unzip modified_images.zip -d working_images_folder
+          rm -rf working_images_folder/__MACOSX
 
-          // Declare private CoreUI class interfaces so the compiler accepts them
-          @interface CUICatalog : NSObject
-          - (id)initWithURL:(NSURL *)url error:(NSError **)error;
-          - (NSArray *)allImageNames; // Corrected modern private framework selector
-          - (id)imageWithName:(NSString *)name scaleFactor:(double)scale;
-          @end
+      # 3. Dynamic Python Catalog Formatter with Auto-Suffix Truncation
+      - name: Structure Catalog From Manifest JSON
+        run: |
+          python3 -c "
+          import os, json, shutil, re
 
-          @interface CUINamedImage : NSObject
-          - (CGImageRef)image;
-          @end
+          manifest_path = 'catalog_manifest.json'
+          source_folder = 'working_images_folder'
+          catalog_dir = 'MockCatalog.xcassets'
 
-          int main(int argc, const char * argv[]) {
-              @autoreleasepool {
-                  // Dynamically load Apple's native CoreUI framework
-                  NSBundle *bundle = [NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/CoreUI.framework"];
-                  if (![bundle load]) {
-                      NSLog(@"Error: Failed to load CoreUI private framework.");
-                      return 1;
-                  }
+          if not os.path.exists(manifest_path):
+              print('Error: catalog_manifest.json not found!')
+              exit(1)
 
-                  NSString *currentDir = [[NSFileManager defaultManager] currentDirectoryPath];
-                  NSURL *carURL = [NSURL fileURLWithPath:[currentDir stringByAppendingPathComponent:@"Assets.car"]];
-                  NSString *outputPath = [currentDir stringByAppendingPathComponent:@"extracted_images"];
+          with open(manifest_path, 'r') as f:
+              manifest = json.load(f)
 
-                  NSLog(@"Reading asset inventory from: %@", carURL.path);
+          os.makedirs(catalog_dir, exist_ok=True)
+          items = manifest if isinstance(manifest, list) else manifest.get('images', manifest.get('assets', []))
 
-                  NSError *error = nil;
-                  CUICatalog *catalog = [[NSClassFromString(@"CUICatalog") alloc] initWithURL:carURL error:&error];
-                  if (!catalog) {
-                      NSLog(@"Error: Failed to open Asset catalog file: %@", error.localizedDescription);
-                      return 1;
-                  }
+          # Create an index map of all actual files currently sitting inside our unzipped folder
+          unpacked_files = os.listdir(source_folder)
 
-                  // Safe execution lookup with signature validation fallback
-                  NSArray *names = nil;
-                  if ([catalog respondsToSelector:@selector(allImageNames)]) {
-                      names = [catalog allImageNames];
-                  } else if ([catalog respondsToSelector:NSSelectorFromString(@"allAssetNames")]) {
-                      names = [catalog performSelector:NSSelectorFromString(@"allAssetNames")];
-                  }
+          for item in items:
+              name = item.get('Name')
+              uti = item.get('UTI', 'public.data')
+              asset_type = item.get('AssetType', 'Data')
+              
+              if not name:
+                  continue
 
-                  NSLog(@"Discovered %lu assets within catalog file.", (unsigned long)names.count);
+              # Target match variables 
+              matched_source_file = None
+              found_ext = '.png'
 
-                  for (NSString *name in names) {
-                      // Fetch asset structures at 2x retina asset scale factor
-                      id namedImage = [catalog imageWithName:name scaleFactor:2.0];
-                      if (namedImage && [namedImage respondsToSelector:@selector(image)]) {
-                          CGImageRef cgImage = (CGImageRef)[namedImage performSelector:@selector(image)];
-                          if (cgImage) {
-                              NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
-                              NSData *data = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
-                              
-                              if (data) {
-                                  NSString *fileDest = [outputPath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.png", name]];
-                                  [data writeToFile:fileDest atomically:YES];
-                                  NSLog(@"Successfully extracted: %@.png", name);
-                              }
-                          }
-                      }
-                  }
+              # Scan the unzipped folder to find files that match this asset name even with extraction suffixes
+              for filename in unpacked_files:
+                  # Remove the file extension first to isolate the name block
+                  base_file_part, ext_part = os.path.splitext(filename)
+                  
+                  # Strip out Tinkerer/CoreUI trailing extraction tags to find the original clean name string
+                  cleaned_file_name = re.sub(r'(_normal|@2x|@3x|_scale_1\.0|_scale_2\.0|_scale_3\.0)$', '', base_file_part)
+                  
+                  # Check if the stripped filename matches the structural manifest token
+                  if cleaned_file_name.lower() == name.lower():
+                      matched_source_file = os.path.join(source_folder, filename)
+                      found_ext = ext_part
+                      break
+
+              if not matched_source_file:
+                  print(f'Warning: No modified file could be mapped to manifest token: {name}')
+                  continue
+
+              # Map catalog extensions to separate data and images sets based on manifest entries
+              is_image = asset_type.lower() == 'image' or 'png' in uti or 'image' in uti
+              set_ext = '.imageset' if is_image else '.dataset'
+              target_set_dir = os.path.join(catalog_dir, f'{name}{set_ext}')
+              os.makedirs(target_set_dir, exist_ok=True)
+
+              # Strip trailing modifications for final production compilation delivery
+              target_file_name = f'{name}{found_ext}'
+              shutil.copy(matched_source_file, os.path.join(target_set_dir, target_file_name))
+
+              contents = {
+                  'info': {'version': 1, 'author': 'xcode'}
               }
-              return 0;
-          }
-          EOF
+              
+              if is_image:
+                  contents['images'] = [
+                      {'idiom': 'universal', 'filename': target_file_name, 'scale': '1x'},
+                      {'idiom': 'universal', 'scale': '2x'},
+                      {'idiom': 'universal', 'scale': '3x'}
+                  ]
+              else:
+                  contents['data'] = [
+                      {'idiom': 'universal', 'filename': target_file_name, 'universal-type-identifier': uti}
+                  ]
 
-          # Compile the script with standard foundation frameworks
-          clang -framework Foundation -framework AppKit -o extract_tool extract.m
-          
-          # Run the extraction binary
-          ./extract_tool
+              with open(os.path.join(target_set_dir, 'Contents.json'), 'w') as out_f:
+                  json.dump(contents, out_f, indent=2)
 
-      # 3. Save your extracted images so you can download them from the UI
-      - name: Upload Extracted Images Artifact
+          print('Structural conversion finalized successfully with suffix normalization rules applied!')
+          "
+
+      # 4. Recompile the structured directory using Apple's official actool compiler
+      - name: Compile Assets.car
+        run: |
+          mkdir -p output_compiled_car
+          xcrun actool MockCatalog.xcassets \
+            --compile output_compiled_car \
+            --platform iphoneos \
+            --minimum-deployment-target 15.0
+            
+      # 5. Save your rebuilt binary file so you can retrieve it from the UI
+      - name: Upload Rebuilt Assets.car Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: native-extracted-assets
-          path: extracted_images/
+          name: rebuilt-production-car
+          path: output_compiled_car/Assets.car
           retention-days: 5
