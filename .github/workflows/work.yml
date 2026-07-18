@@ -1,21 +1,30 @@
-name: Precise Watermark Swap
-
+name: Extract Apple Assets
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
-  modify-car:
+  unpack_assets:
     runs-on: macos-latest
-
+    
     steps:
-    - name: Checkout Repository Files
-      uses: actions/checkout@v4
+      # Step 1: Tell GitHub to copy your repository files (Assets.car) into the runner machine
+      - name: Checkout Repository Content
+        uses: actions/checkout@v4
 
-    - name: Step 1 - Execute Python Binary Patching
-      run: python3 swap.py
+      # Step 2: Unpack the catalog using Apple's native command-line utility
+      - name: Unpack Catalog via Apple Assetutil
+        run: |
+          mkdir ExtractedAssets
+          assetutil --extract ExtractedAssets Assets.car
 
-    - name: Step 2 - Upload Authentic Modified File
-      uses: actions/upload-artifact@v4
-      with:
-        name: Modified-Assets-File
-        path: final_output/Assets.car
+      # Step 3: Package the extracted items into a zip bundle
+      - name: Bundle into a Downloadable ZIP File
+        run: |
+          zip -r extracted_images.zip ExtractedAssets
+
+      # Step 4: Upload the output archive so you can download it via the GitHub website interface
+      - name: Upload Output Assets to GitHub UI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unpacked-Images-Archive
+          path: extracted_images.zip
