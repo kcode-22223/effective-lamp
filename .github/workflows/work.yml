@@ -19,14 +19,17 @@ jobs:
           submodules: 'recursive'
           path: tool-source
 
-      # Step 3: Build using the repository's native Makefile layout
-      - name: Build Local ARM64 Asset Extractor via Makefile
+      # Step 3: Clear prebuilt files and force a clean compile from source code
+      - name: Force Clean Build of Local ARM64 Extractor
         run: |
           mkdir ExtractedAssets
           cd tool-source
+          # Wipes out any old, broken pre-compiled files in the repo
+          make clean
+          # Forces Xcode to compile a native ARM64 build right here
           make
 
-      # Step 4: Run the compiled executable binary file natively (acextract.bin)
+      # Step 4: Run the newly compiled executable file natively (it will create 'acextract.bin')
       - name: Execute Native Extraction
         run: |
           ./tool-source/acextract.bin -i Assets.car -o ExtractedAssets
