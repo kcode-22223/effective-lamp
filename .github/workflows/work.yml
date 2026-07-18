@@ -11,22 +11,17 @@ jobs:
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Download and unpack the official prebuilt zip directly from their raw folder
+      # Step 2: Download and unpack the prebuilt zip directly
       - name: Fetch Pre-Compiled Tinkerer Tool
         run: |
           mkdir ExtractedAssets
-          # Download the stable latest release bundle from your custom link
-          curl -L "https://github.com/insidegui/AssetCatalogTinkerer/raw/main/releases/AssetCatalogTinkerer_latest.zip" -o tool.zip
+          curl -L "https://github.com" -o tool.zip
           unzip tool.zip
-          
-          # Move the bundled 'act' CLI executable tool out of the app package to run it easily
-          cp "Asset Catalog Tinkerer.app/Contents/MacOS/act" ./act
-          chmod +x ./act
 
-      # Step 3: Run the prebuilt utility directly
+      # Step 3: Execute act from its true home directory so it finds ACS.framework perfectly
       - name: Execute Native Extraction via act
         run: |
-          ./act export -i Assets.car -o ExtractedAssets
+          ./"Asset Catalog Tinkerer.app"/Contents/MacOS/act export -i Assets.car -o ExtractedAssets
 
       # Step 4: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
