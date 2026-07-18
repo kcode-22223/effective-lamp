@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Compile and run an inline Objective-C script
-      # Objective-C handles private framework dynamic linkage perfectly
+      # Replaces 'allAssetNames' with 'allImageNames' to align with modern CoreUI signatures
       - name: Extract Images Natively
         run: |
           mkdir -p extracted_images
@@ -27,7 +27,7 @@ jobs:
           // Declare private CoreUI class interfaces so the compiler accepts them
           @interface CUICatalog : NSObject
           - (id)initWithURL:(NSURL *)url error:(NSError **)error;
-          - (NSArray *)allAssetNames;
+          - (NSArray *)allImageNames; // Corrected modern private framework selector
           - (id)imageWithName:(NSString *)name scaleFactor:(double)scale;
           @end
 
@@ -57,7 +57,14 @@ jobs:
                       return 1;
                   }
 
-                  NSArray *names = [catalog allAssetNames];
+                  // Safe execution lookup with signature validation fallback
+                  NSArray *names = nil;
+                  if ([catalog respondsToSelector:@selector(allImageNames)]) {
+                      names = [catalog allImageNames];
+                  } else if ([catalog respondsToSelector:NSSelectorFromString(@"allAssetNames")]) {
+                      names = [catalog performSelector:NSSelectorFromString(@"allAssetNames")];
+                  }
+
                   NSLog(@"Discovered %lu assets within catalog file.", (unsigned long)names.count);
 
                   for (NSString *name in names) {
