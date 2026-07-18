@@ -1,41 +1,16 @@
-name: Extract Apple Assets
+name: Get Act Help Text
 on:
   workflow_dispatch:
 
 jobs:
-  unpack_assets:
+  check_help:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Copy your own repository files (Assets.car) into the runner workspace
-      - name: Checkout Your Repository Content
-        uses: actions/checkout@v4
-
-      # Step 2: Download and link the verified app bundle via Homebrew
       - name: Install Tool via Homebrew
         run: |
-          mkdir ExtractedAssets
           brew install --cask asset-catalog-tinkerer
 
-      # Step 3: Call the tool using its exact strict argument syntax
-      - name: Execute Native Extraction via act
+      - name: Print Help Documentation
         run: |
-          # Exact syntax match: act --input <file> export
-          "/Applications/Asset Catalog Tinkerer.app/Contents/MacOS/act" --input Assets.car export
-          
-          # Move the unpacked image assets out of the root folder into your target directory
-          mv Assets/*.png ExtractedAssets/ 2>/dev/null || true
-          mv Assets/*.jpg ExtractedAssets/ 2>/dev/null || true
-          mv Assets/*.jpeg ExtractedAssets/ 2>/dev/null || true
-
-      # Step 4: Package everything into a zip bundle
-      - name: Bundle into a Downloadable ZIP File
-        run: |
-          zip -r extracted_images.zip ExtractedAssets
-
-      # Step 5: Post the package onto your GitHub web interface dashboard
-      - name: Upload Output Assets to GitHub UI
-        uses: actions/upload-artifact@v4
-        with:
-          name: Unpacked-Images-Archive
-          path: extracted_images.zip
+          "/Applications/Asset Catalog Tinkerer.app/Contents/MacOS/act" --help
