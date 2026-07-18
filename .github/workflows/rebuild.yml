@@ -16,10 +16,10 @@ jobs:
 
       - name: Configure Built-in macOS VNC Server
         run: |
-          # Sets up a temporary security credential for the session connection
+          # 1. Fixed kickstart arguments targeting native VNC protocol
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
-            -clientopts -setvncpasswd -vncpasswd password123 \
+            -clientopts -setvncpw -vncpw password123 \
             -restart -agent -privs -all
 
       - name: Launch Web Proxy Display Tunnel
@@ -28,5 +28,5 @@ jobs:
           echo "👉 CLICK THE SECURE URL BELOW TO CONTROL THE CLOUD MAC:"
           echo "=========================================================="
           
-          # Creates a secure reverse-proxy path to port 5900 (macOS VNC Stream)
-          curl -s https://pinggy.io | sh -s -- -p 5900
+          # 2. Fixed connection path pulling the executable engine script /run
+          curl -s https://pinggy.io | sh -s -- -p 5900 -t
