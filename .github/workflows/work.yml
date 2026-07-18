@@ -18,7 +18,7 @@ jobs:
       # Using the official repository release package to skip code compilation
       - name: Download Samra Toolchain
         run: |
-          curl -L -o Samra.zip https://github.com
+          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
           unzip Samra.zip -d samra_app
 
       # 3. Trigger Samra's built-in extractutil command line tool
