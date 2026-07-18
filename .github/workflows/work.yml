@@ -11,32 +11,29 @@ jobs:
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Use the native checkout block to fetch the Tinkerer tool source code
-      - name: Fetch Asset Catalog Tinkerer Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'insidegui/AssetCatalogTinkerer'
-          path: tool-source
-
-      # Step 3: Compile the tool and force Xcode to output the binary into our local folder
-      - name: Compile Tinkerer CLI Tool
+      # Step 2: Download and unpack the official prebuilt zip directly from their raw folder
+      - name: Fetch Pre-Compiled Tinkerer Tool
         run: |
           mkdir ExtractedAssets
-          cd tool-source
-          # Forces the compiled 'act' binary to drop straight into tool-source/output
-          xcodebuild -project "Asset Catalog Tinkerer.xcodeproj" -scheme act -configuration Release CONFIGURATION_BUILD_DIR=./output
+          # Download the stable latest release bundle from your custom link
+          curl -L "https://github.com/insidegui/AssetCatalogTinkerer/raw/main/releases/AssetCatalogTinkerer_latest.zip" -o tool.zip
+          unzip tool.zip
+          
+          # Move the bundled 'act' CLI executable tool out of the app package to run it easily
+          cp "Asset Catalog Tinkerer.app/Contents/MacOS/act" ./act
+          chmod +x ./act
 
-      # Step 4: Run the compiled utility from the exact output folder
+      # Step 3: Run the prebuilt utility directly
       - name: Execute Native Extraction via act
         run: |
-          ./tool-source/output/act export -i Assets.car -o ExtractedAssets
+          ./act export -i Assets.car -o ExtractedAssets
 
-      # Step 5: Package everything into a zip bundle
+      # Step 4: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 6: Post the package onto your GitHub web interface dashboard
+      # Step 5: Post the package onto your GitHub web interface dashboard
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
