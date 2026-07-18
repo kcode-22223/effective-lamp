@@ -1,48 +1,36 @@
-name: Pure Deep Asset Extraction
+name: Extract Assets from CAR File
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allows manual trigger via GitHub website UI
 
 jobs:
-  extract-car:
-    runs-on: macos-latest
+  extract:
+    runs-on: macos-latest # Required for CoreUI/Private framework execution
 
     steps:
-    - name: Checkout Repository Files
-      uses: actions/checkout@v4
+      # 1. Pull down your repository code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Step 1 - Native Python Binary Extraction Sequence
-      run: |
-        mkdir -p full_extracted_images
-        
-        # Pull down a self-contained single-file Python CAR catalog parser script 
-        curl -fsSL https://githubusercontent.com -o cartool_extractor.py || curl -fsSL https://githubusercontent.com -o cartool_extractor.py
-        
-        # Execute the native python stream directly against the 23.6MB archive
-        if [ -f "cartool_extractor.py" ]; then
-          python3 cartool_extractor.py Assets.car full_extracted_images/ || python3 cartool_extractor.py -i Assets.car -o full_extracted_images/
-        else
-          # Fallback backup parser inline to carve raw image structures manually
-          python3 -c "
-          import os, re
-          os.makedirs('full_extracted_images', exist_ok=True)
-          if os.path.exists('Assets.car'):
-              with open('Assets.car', 'rb') as f:
-                  data = f.read()
-                  # Extract printable text blocks matching asset naming conventions 
-                  names = set(re.findall(b'[a-zA-Z0-9_.-]{5,60}', data))
-                  for b_name in names:
-                      try:
-                          name = b_name.decode('utf-8')
-                          if any(x in name.lower() for x in ['logo', 'watermark', 'icon', 'btn', 'bg']):
-                              # Seed clean target positions for your windows machine tracking
-                              with open(f'full_extracted_images/{name}.png', 'wb') as out:
-                                  out.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02\x08\x06\x00\x00\x00\xf4\x78\xd4\xfa\x00\x00\x00\x01bKGD\x00\x88\x05\xa3\xb4\x00\x00\x00\x0eIDATx\x9cc`\x00\x01\x00\x00\x0c\x00\x01\x00\x1c\x05\x00\x03\x00\x01\x1e\xcd\xef\x92\x00\x00\x00\x00IEND\xaeB`\x82')
-                      except: pass
-        fi
+      # 2. Set up the cartool tool via Homebrew tap
+      - name: Install cartool via Homebrew
+        run: |
+          brew tap showxu/tap
+          brew install cartool
 
-    - name: Step 2 - Upload Genuine Unpacked Images To Windows
-      uses: actions/upload-artifact@v4
-      with:
-        name: Complete-Unpacked-App-Images
-        path: full_extracted_images/
+      # 3. Create the output folder and run the extraction
+      # Replace 'path/to/Assets.car' with the actual path inside your repository
+      - name: Extract Images
+        run: |
+          mkdir -p extracted_images
+          cartool path/to/Assets.car extracted_images
+
+      # 4. Save your extracted images so you can download them from the UI
+      - name: Upload Extracted Images Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-assets-png
+          path: extracted_images/
+          retention-days: 5
