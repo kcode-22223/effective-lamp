@@ -10,7 +10,7 @@ jobs:
 
       - name: Download and Install Samra App
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
+          curl -L -o Samra.zip https://github.com
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
@@ -18,39 +18,40 @@ jobs:
         run: |
           killall Samra || true
           open /Applications/Samra.app
-          sleep 4
+          sleep 5
 
           osascript -e '
             tell application "System Events"
               tell process "Samra"
                 set frontmost to true
-                delay 1
-                
-                # 1. Bypass the Welcome Screen by clicking "Open Assets File"
-                tell window 1
-                  click static text "Open Assets File"
-                end tell
                 delay 1.5
                 
-                # 2. Input the absolute path to your Assets.car file
-                keystroke "G" using {command down, shift down}
-                delay 1
-                keystroke "'"$PWD"'/Assets.car"
+                # 1. Bypass Welcome Screen via Keyboard Navigation
+                # Tab moves focus to the first interactive menu element ("Open Assets File")
+                key code 48 -- (Press Tab)
                 delay 0.5
-                key code 36 -- (Press Enter to apply location)
-                delay 1
-                key code 36 -- (Press Enter again to confirm file pick)
+                key code 49 -- (Press Spacebar to click it)
+                delay 2
                 
-                # CRITICAL: Allow time for a large catalog to fully generate its UI
-                delay 8 
+                # 2. Open standard macOS panel navigation to find Assets.car
+                keystroke "G" using {command down, shift down}
+                delay 1.5
+                keystroke "'"$PWD"'/Assets.car"
+                delay 1
+                key code 36 -- (Press Enter to apply location)
+                delay 1.5
+                key code 36 -- (Press Enter again to open the file)
+                
+                # Allow time for a large catalog to fully generate its UI
+                delay 10 
 
-                # 3. Target the main application workspace window now that it is open
+                # 3. Target the main application workspace window
                 tell window 1
-                  # Target the search bar and filter for "watermark"
+                  # Open search bar and type "watermark"
                   keystroke "f" using command down
                   delay 1
                   keystroke "watermark"
-                  delay 2 -- Let search indexing filter the row elements
+                  delay 3 -- Let search indexing filter the row elements
 
                   # Highlight and select the structural element row
                   set targetRow to static text "watermark"
@@ -59,7 +60,7 @@ jobs:
 
                   # Click the visual "Edit" button in the details panel
                   click button "Edit"
-                  delay 2
+                  delay 2.5
                 end tell
 
                 # 4. Handle the file picker sheet for the replacement image
@@ -70,7 +71,7 @@ jobs:
                 key code 36 -- (Confirm path input)
                 delay 1.5
                 key code 36 -- (Confirm target selection)
-                delay 3
+                delay 4
 
                 # 5. Save the corrected data modifications
                 keystroke "s" using command down
