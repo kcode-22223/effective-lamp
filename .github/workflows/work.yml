@@ -17,7 +17,7 @@ jobs:
       # 2. Clone and build cartools directly from source (Fixed paths & scheme)
       - name: Clone and Compile cartools
         run: |
-          git clone https://github.com
+          git clone https://github.com/showxu/cartools
           cd cartools
           # Build the command-line target specifically using the workspace
           xcodebuild -workspace Cartools.xcworkspace -scheme cartooldt -configuration Release DBG_ROOT=/
