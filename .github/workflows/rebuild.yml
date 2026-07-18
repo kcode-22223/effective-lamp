@@ -10,7 +10,7 @@ jobs:
 
       - name: Download and Install Latest Samra App
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra
+          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
