@@ -9,28 +9,37 @@ assets_catalog = 'Assets.xcassets'
 
 os.makedirs(assets_catalog, exist_ok=True)
 
-# 1. Unzip your authentic images on the cloud runner
 if os.path.exists(zip_path):
-    print("--- UNZIPPING GENUINE APP IMAGES ---")
+    print("--- UNZIPPING ASSET TINKERER IMAGES ---")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
 
-# 2. Build the proper directory structure that actool expects
 if os.path.exists(extract_path):
-    print("--- MAPPING IMAGES INTO COMPILER CATALOG ---")
+    print("--- TRANSLATING TINKERER FILE NAMES TO APPLE FORMAT ---")
     for filename in os.listdir(extract_path):
         if filename.lower().endswith('.png'):
-            # Parse baseline string name
-            base_name = os.path.splitext(filename)[0]
-            clean_name = base_name.split('_Normal')[0].split('@')[0]
+            # Strip extension
+            name_without_ext = os.path.splitext(filename)[0]
             
+            # Remove the "_Normal" suffix added by Asset Catalog Tinkerer extraction
+            if '_Normal' in name_without_ext:
+                clean_name = name_without_ext.split('_Normal')[0]
+                # Re-append the scale identifier if it was attached after the _Normal text
+                if '@2x' in name_without_ext:
+                    clean_name = clean_name.split('@')[0]
+                elif '@3x' in name_without_ext:
+                    clean_name = clean_name.split('@')[0]
+            else:
+                clean_name = name_without_ext.split('@')[0]
+            
+            # Safeguard system asset folder mapping
             imageset_dir = f'{assets_catalog}/{clean_name}.imageset'
             os.makedirs(imageset_dir, exist_ok=True)
             
-            # Detect resolution scale properties
+            # Detect scale properties
             scale = '1x'
-            if '@2x' in base_name: scale = '2x'
-            elif '@3x' in base_name: scale = '3x'
+            if '@2x' in name_without_ext: scale = '2x'
+            elif '@3x' in name_without_ext: scale = '3x'
             
             contents_path = f'{imageset_dir}/Contents.json'
             if os.path.exists(contents_path):
@@ -38,14 +47,18 @@ if os.path.exists(extract_path):
                     contents = json.load(jf)
             else:
                 contents = {'images': [], 'info': {'version': 1, 'author': 'xcode'}}
-                
-            contents['images'].append({'idiom': 'universal', 'scale': scale, 'filename': filename})
+            
+            # Map the clean target name and keep uncompressed pixel structures intact
+            target_filename = f'{clean_name}.png' if scale == '1x' else f'{clean_name}@{scale}.png'
+            contents['images'].append({
+                'idiom': 'universal', 
+                'scale': scale, 
+                'filename': target_filename
+            })
             
             with open(contents_path, 'w') as jf:
                 json.dump(contents, jf)
                 
-            shutil.copy(os.path.join(extract_path, filename), os.path.join(imageset_dir, filename))
+            shutil.copy(os.path.join(extract_path, filename), os.path.join(imageset_dir, target_filename))
             
-    print("Catalog structure built successfully!")
-else:
-    print("Error: Zip file processing failed.")
+    print("Catalog structure successfully translated and matched!")
