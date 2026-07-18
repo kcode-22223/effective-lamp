@@ -1,4 +1,4 @@
-name: Rebuild Custom Assets via Manifest & Zip
+name: Rebuild Custom Assets via Manifest Entry Mapping
 
 on:
   push:
@@ -25,8 +25,8 @@ jobs:
           unzip modified_images.zip -d working_images_folder
           rm -rf working_images_folder/__MACOSX
 
-      # 3. Dynamic Python Catalog Formatter with Deep Directory Traversal
-      - name: Structure Catalog From Manifest JSON
+      # 3. Dynamic Python Parser targeting the exact entry structure
+      - name: Map and Pair Entries Natively
         run: |
           python3 -c "
           import os, json, shutil
@@ -45,68 +45,88 @@ jobs:
           os.makedirs(catalog_dir, exist_ok=True)
           items = manifest if isinstance(manifest, list) else manifest.get('images', manifest.get('assets', []))
 
-          # Deep-scan your unpacked zip workspace to map ALL files across any nested folder layers
+          # Deep-scan unpacked zip directory paths
           all_unpacked_files = []
           for root, dirs, files in os.walk(source_folder):
               for file in files:
                   if not file.startswith('.'):
-                      # Save the absolute path along with the filename
                       all_unpacked_files.append((file, os.path.join(root, file)))
 
-          print(f'Total valid files found in unzipped workspace: {len(all_unpacked_files)}')
+          print(f'Total unpacked files indexed: {len(all_unpacked_files)}')
 
-          for item in items:
-              name = item.get('Name')
-              uti = item.get('UTI', 'public.data')
-              asset_type = item.get('AssetType', 'Data')
-              
+          for entry in items:
+              # Targets the specific entry key requested
+              name = entry.get('Name')
               if not name:
                   continue
 
               matched_source_file = None
               found_ext = '.png'
 
-              # Search using clean case-insensitive prefix logic over our deep file catalog map
+              # Match the file name prefix directly to the entry token
               for filename, absolute_path in all_unpacked_files:
                   if filename.lower().startswith(name.lower()):
                       matched_source_file = absolute_path
-                      # Extract the extension component cleanly
                       _, found_ext = os.path.splitext(filename)
                       break
 
               if not matched_source_file:
-                  print(f'Warning: Missing or unmapped asset file for token: {name}')
+                  print(f'Warning: No file found to match entry named: {name}')
                   continue
 
-              # Assign asset folder configurations dynamically
-              is_image = asset_type.lower() == 'image' or 'png' in uti or 'image' in uti
+              # Read metadata properties from the exact matched entry
+              uti = entry.get('UTI', 'public.data')
+              asset_type = entry.get('AssetType', 'Data')
+              idiom = entry.get('Idiom', 'universal')
+              scale_num = entry.get('Scale', 1)
+              
+              # Standardize scale formatting
+              scale_str = f'{int(scale_num)}x' if scale_num in [1, 2, 3] else '1x'
+
+              # Separate image resources from binary dataset blobs based on entry keys
+              is_image = asset_type.lower() == 'image' or 'png' in uti.lower() or 'image' in uti.lower()
               set_ext = '.imageset' if is_image else '.dataset'
               target_set_dir = os.path.join(catalog_dir, f'{name}{set_ext}')
               os.makedirs(target_set_dir, exist_ok=True)
 
-              # Strip trailing modifications for final clean production compilation
+              # Strip tracking modifiers for clean final output compilation
               target_file_name = f'{name}{found_ext}'
               shutil.copy(matched_source_file, os.path.join(target_set_dir, target_file_name))
 
+              # Build Contents.json by mirroring the exact fields found in the entry
               contents = {
                   'info': {'version': 1, 'author': 'xcode'}
               }
               
               if is_image:
                   contents['images'] = [
-                      {'idiom': 'universal', 'filename': target_file_name, 'scale': '1x'},
-                      {'idiom': 'universal', 'scale': '2x'},
-                      {'idiom': 'universal', 'scale': '3x'}
+                      {
+                          'idiom': idiom,
+                          'filename': target_file_name,
+                          'scale': scale_str
+                      }
                   ]
               else:
                   contents['data'] = [
-                      {'idiom': 'universal', 'filename': target_file_name, 'universal-type-identifier': uti}
+                      {
+                          'idiom': idiom,
+                          'filename': target_file_name,
+                          'universal-type-identifier': uti
+                      }
                   ]
+
+              # If the entry has extra fields like 'State' or 'Value', preserve them as properties
+              if 'State' in entry or 'Value' in entry:
+                  contents['properties'] = {}
+                  if 'State' in entry:
+                      contents['properties']['state'] = entry['State']
+                  if 'Value' in entry:
+                      contents['properties']['value'] = entry['Value']
 
               with open(os.path.join(target_set_dir, 'Contents.json'), 'w') as out_f:
                   json.dump(contents, out_f, indent=2)
 
-          print('Mapping completed! Folder structures bypassed successfully.')
+          print('Pairing process complete! Every file linked to its exact manifest entry attributes.')
           "
 
       # 4. Recompile the structured directory using Apple's official actool compiler
