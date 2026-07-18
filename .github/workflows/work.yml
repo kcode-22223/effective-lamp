@@ -25,11 +25,11 @@ jobs:
           unzip modified_images.zip -d working_images_folder
           rm -rf working_images_folder/__MACOSX
 
-      # 3. Dynamic Python Catalog Formatter with Auto-Suffix Truncation
+      # 3. Dynamic Python Catalog Formatter with Substring Matching
       - name: Structure Catalog From Manifest JSON
         run: |
           python3 -c "
-          import os, json, shutil, re
+          import os, json, shutil
 
           manifest_path = 'catalog_manifest.json'
           source_folder = 'working_images_folder'
@@ -45,8 +45,8 @@ jobs:
           os.makedirs(catalog_dir, exist_ok=True)
           items = manifest if isinstance(manifest, list) else manifest.get('images', manifest.get('assets', []))
 
-          # Create an index map of all actual files currently sitting inside our unzipped folder
-          unpacked_files = os.listdir(source_folder)
+          # Get a clean list of files inside the unzipped folder
+          unpacked_files = [f for f in os.listdir(source_folder) if not f.startswith('.')]
 
           for item in items:
               name = item.get('Name')
@@ -56,35 +56,33 @@ jobs:
               if not name:
                   continue
 
-              # Target match variables 
               matched_source_file = None
-              found_ext = '.png'
+              found_ext = None
 
-              # Scan the unzipped folder to find files that match this asset name even with extraction suffixes
+              # Search using clean case-insensitive substring prefixes
               for filename in unpacked_files:
-                  # Remove the file extension first to isolate the name block
-                  base_file_part, ext_part = os.path.splitext(filename)
-                  
-                  # Strip out Tinkerer/CoreUI trailing extraction tags to find the original clean name string
-                  cleaned_file_name = re.sub(r'(_normal|@2x|@3x|_scale_1\.0|_scale_2\.0|_scale_3\.0)$', '', base_file_part)
-                  
-                  # Check if the stripped filename matches the structural manifest token
-                  if cleaned_file_name.lower() == name.lower():
-                      matched_source_file = os.path.join(source_folder, filename)
-                      found_ext = ext_part
-                      break
+                  # Check if the file name starts exactly with the manifest token name
+                  if filename.lower().startswith(name.lower()):
+                      # Secure absolute file extension fallback handling (.gif, .png, etc.)
+                      _, ext_part = os.path.splitext(filename.lower())
+                      
+                      # Keep looking if it is a secondary nested artifact
+                      if ext_part in ['.png', '.gif', '.jpg', '.jpeg', '.data']:
+                          matched_source_file = os.path.join(source_folder, filename)
+                          found_ext = os.path.splitext(filename)[1] # Extract true extension case
+                          break
 
               if not matched_source_file:
-                  print(f'Warning: No modified file could be mapped to manifest token: {name}')
+                  print(f'Warning: Missing or unmapped asset file for token: {name}')
                   continue
 
-              # Map catalog extensions to separate data and images sets based on manifest entries
+              # Assign asset types dynamically based on manifest definitions
               is_image = asset_type.lower() == 'image' or 'png' in uti or 'image' in uti
               set_ext = '.imageset' if is_image else '.dataset'
               target_set_dir = os.path.join(catalog_dir, f'{name}{set_ext}')
               os.makedirs(target_set_dir, exist_ok=True)
 
-              # Strip trailing modifications for final production compilation delivery
+              # Format standard output names matching native deployment formats
               target_file_name = f'{name}{found_ext}'
               shutil.copy(matched_source_file, os.path.join(target_set_dir, target_file_name))
 
@@ -106,7 +104,7 @@ jobs:
               with open(os.path.join(target_set_dir, 'Contents.json'), 'w') as out_f:
                   json.dump(contents, out_f, indent=2)
 
-          print('Structural conversion finalized successfully with suffix normalization rules applied!')
+          print('Mapping completed! Suffix constraints bypassed successfully.')
           "
 
       # 4. Recompile the structured directory using Apple's official actool compiler
