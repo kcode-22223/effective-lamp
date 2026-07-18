@@ -16,7 +16,6 @@ jobs:
 
       - name: Configure Built-in macOS VNC Server
         run: |
-          # 1. Fixed kickstart arguments targeting native VNC protocol
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
             -clientopts -setvncpw -vncpw password123 \
@@ -24,9 +23,13 @@ jobs:
 
       - name: Launch Web Proxy Display Tunnel
         run: |
-          echo "=========================================================="
-          echo "👉 CLICK THE SECURE URL BELOW TO CONTROL THE CLOUD MAC:"
-          echo "=========================================================="
+          echo "================================================================="
+          echo "👉 CONSOLE ACTION REQUIRED: COPY THE public tcp:// URL BELOW"
+          echo "================================================================="
           
-          # 2. Fixed connection path pulling the executable engine script /run
-          curl -s https://pinggy.io | sh -s -- -p 5900 -t
+          # Native zero-install SSH loop forwarding VNC screen traffic safely to the cloud
+          ssh -p 443 \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            -R 0:127.0.0.1:5900 \
+            tcp@a.pinggy.io
