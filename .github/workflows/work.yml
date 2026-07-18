@@ -14,7 +14,7 @@ jobs:
     - name: Step 1 - Install Cartool via Homebrew
       run: |
         # Pulls the exact homebrew formula repository shown in your screenshot
-        brew tap 0xxd00/tap
+        brew tap 0xxd0/tap
         brew install cartool
 
     - name: Step 2 - Execute Cartool Extract Sequence
