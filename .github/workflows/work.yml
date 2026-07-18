@@ -7,11 +7,11 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Copy your own repository files (Assets.car) into the workspace runner
+      # Step 1: Copy your own repository files (Assets.car) into the runner workspace
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Use the native checkout block to fetch the tool source directly
+      # Step 2: Use the native checkout block to fetch the tool source directly with submodules
       - name: Fetch Extractor Tool Source
         uses: actions/checkout@v4
         with:
@@ -19,20 +19,18 @@ jobs:
           submodules: 'recursive'
           path: tool-source
 
-      # Step 3: Clear prebuilt files and force a clean compile from source code
-      - name: Force Clean Build of Local ARM64 Extractor
+      # Step 3: Compile via Apple's native command-line builder (xcodebuild)
+      - name: Compile via Xcode Build Engine
         run: |
           mkdir ExtractedAssets
           cd tool-source
-          # Wipes out any old, broken pre-compiled files in the repo
-          make clean
-          # Forces Xcode to compile a native ARM64 build right here
-          make
+          # Compiles the xcodeproj file natively into an executable binary
+          xcodebuild -project acextract.xcodeproj -scheme acextract -configuration Release DSTROOT=./build install
 
-      # Step 4: Run the newly compiled executable file natively (it will create 'acextract.bin')
+      # Step 4: Run the newly compiled binary file directly
       - name: Execute Native Extraction
         run: |
-          ./tool-source/acextract.bin -i Assets.car -o ExtractedAssets
+          ./tool-source/build/usr/local/bin/acextract -i Assets.car -o ExtractedAssets
 
       # Step 5: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
