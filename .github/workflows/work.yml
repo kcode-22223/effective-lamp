@@ -1,4 +1,4 @@
-name: Extract Assets via Samra Source
+name: Extract Assets via CoreUI Script
 
 on:
   push:
@@ -13,27 +13,97 @@ jobs:
       # 1. Pull down your repository code containing Assets.car
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
-      # 2. Clone the Samra source repository files directly
-       Pentesting
-      - name: Clone Samra Source Repository
-        run: |
-          git clone --recursive https://github.com/NSAntoine/Samra
-          
-      # 3. Build and execute extractutil natively from source
-      - name: Extract Images
+
+      # 2. Extract files using a native inline Swift script
+      # This utilizes macOS CoreUI private libraries natively without external apps
+      - name: Native Extraction Script
         run: |
           mkdir -p extracted_images
-          cd Samra
           
-          # Use Swift run to compile the exact target shown in your image 
-          # Arguments match lines 12-17 of the code snippet: <catalog-url> <directory-to-extract-to>
-          swift run extractutil ../Assets.car ../extracted_images
+          cat << 'EOF' > extract.swift
+          import Foundation
 
-      # 4. Save your extracted images so you can download them from the UI
+          // Dynamically link Apple's private CoreUI framework
+          guard let bundle = Bundle(path: "/System/Library/PrivateFrameworks/CoreUI.framework"), bundle.load() else {
+              print("Error: Failed to load CoreUI framework.")
+              exit(1)
+          }
+
+          // Reference the underlying private catalog storage class
+          guard let CUICatalogClass = NSClassFromString("CUICatalog") as? NSObject.Type else {
+              print("Error: Could not locate CUICatalog class structure.")
+              exit(1)
+          }
+
+          let carPath = FileManager.default.currentDirectoryPath + "/Assets.car"
+          let outputPath = FileManager.default.currentDirectoryPath + "/extracted_images"
+
+          print("Targeting file source: \(carPath)")
+
+          do {
+              // Instantiate the catalog file handler using runtime selector logic
+              let catalogAlloc = CUICatalogClass.alloc()
+              let initSelector = NSSelectorFromString("initWithURL:error:")
+              
+              // Invoke initWithURL via method signatures
+              typealias InitFunc = @convention(c) (NSObject, Selector, URL, UnsafeMutablePointer<NSError?>?) -> NSObject?
+              let imp = catalogAlloc.methodForSelector(initSelector)
+              let initMethod = unsafeBitCast(imp, to: InitFunc.self)
+              
+              var error: NSError?
+              guard let catalog = initMethod(catalogAlloc, initSelector, URL(fileURLWithPath: carPath), &error) else {
+                  print("Error: Failed to open Asset catalog file: \(error?.localizedDescription ?? "Unknown")")
+                  exit(1)
+              }
+
+              // Extract all matching key visual structural assets
+              let allAssetNamesSelector = NSSelectorFromString("allAssetNames")
+              typealias AssetNamesFunc = @convention(c) (NSObject, Selector) -> [String]
+              let namesImp = catalog.methodForSelector(allAssetNamesSelector)
+              let namesMethod = unsafeBitCast(namesImp, to: AssetNamesFunc.self)
+              let names = namesMethod(catalog, allAssetNamesSelector)
+
+              print("Found \(names.count) assets to process.")
+
+              // Fetch image components using the class image lookup structures
+              let imageWithNameSelector = NSSelectorFromString("imageWithName:scaleFactor:")
+              typealias ImageWithNameFunc = @convention(c) (NSObject, Selector, String, CGFloat) -> NSObject?
+              let imageImp = catalog.methodForSelector(imageWithNameSelector)
+              let imageMethod = unsafeBitCast(imageImp, to: ImageWithNameFunc.self)
+
+              for name in names {
+                  if let cuicgImage = imageMethod(catalog, imageWithNameSelector, name, 2.0) {
+                      let imageSelector = NSSelectorFromString("image")
+                      let cgImageImp = cuicgImage.methodForSelector(imageSelector)
+                      typealias CGImageFunc = @convention(c) (NSObject, Selector) -> CGImage?
+                      let cgImageMethod = unsafeBitCast(cgImageImp, to: CGImageFunc.self)
+                      
+                      if let cgImage = cgImageMethod(cuicgImage, imageSelector) {
+                          #if canImport(AppKit)
+                          import AppKit
+                          let size = NSMakeSize(CGFloat(cgImage.width), CGFloat(cgImage.height))
+                          let rep = NSBitmapImageRep(cgImage: cgImage)
+                          if let data = rep.representation(using: .png, properties: [:]) {
+                              let fileURL = URL(fileURLWithPath: outputPath).appendingPathComponent("\(name).png")
+                              try? data.write(to: fileURL)
+                              print("Successfully extracted asset file: \(name).png")
+                          }
+                          #endif
+                      }
+                  }
+              }
+          } catch {
+              print("Execution error encountered: \(error)")
+          }
+          EOF
+
+          # Execute the standalone compilation script environment
+          xcrun swift extract.swift
+
+      # 3. Save your extracted images so you can download them from the UI
       - name: Upload Extracted Images Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: samra-extracted-assets
+          name: native-extracted-assets
           path: extracted_images/
           retention-days: 5
