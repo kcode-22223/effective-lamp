@@ -17,7 +17,7 @@ jobs:
       # 2. Clone and build cartools using direct target compilation
       - name: Clone and Compile cartools
         run: |
-          git clone https://github.com
+          git clone https://github.com/showxu/cartools
           cd cartools
           # Force resolution of package dependencies first
           xcodebuild -resolvePackageDependencies -project Cartools.xcodeproj
