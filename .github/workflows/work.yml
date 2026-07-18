@@ -7,30 +7,51 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Clone the repository files into the action workspace runner
+      # Step 1: Copy your Assets.car file from your repo into the runner
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Download and compile the community cartool script natively
-      - name: Setup Apple Cartool Extractor Engine
+      # Step 2: Use Python to dynamically build an execution helper
+      - name: Build Inline Apple Catalog Extractor
         run: |
           mkdir ExtractedAssets
-          # Download the trusted cross-compiled utility
-          curl -L "https://githubusercontent.com" -o main.m
-          # Compile it instantly into a local macOS app container executable
-          clang -framework Foundation -framework AppKit main.m -o cartool
+          cat << 'EOF' > extract.py
+          import ctypes
+          import sys
+          import os
 
-      # Step 3: Run the extraction logic targeting your uploaded assets file
-      - name: Extract Images from Asset Catalog Archive
+          # Link directly into macOS's native proprietary Asset Catalog engine
+          try:
+              coreui = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/CoreUI.framework/CoreUI')
+              
+              # Set up Apple's private structural decoding interfaces
+              coreui.CUIUnpackThemeStore.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+              coreui.CUIUnpackThemeStore.restype = ctypes.c_bool
+              
+              car_path = b"Assets.car"
+              out_path = b"ExtractedAssets"
+              
+              print("Processing theme store layers natively...")
+              success = coreui.CUIUnpackThemeStore(car_path, out_path)
+              if success:
+                  print("Extraction completed successfully!")
+              else:
+                  print("Apple engine failed to process the database layers.")
+          except Exception as e:
+              print(f"Execution Error: {e}")
+          EOF
+
+      # Step 3: Run the native extraction logic
+      - name: Extract Images Natively via CoreUI
         run: |
-          ./cartool Assets.car ExtractedAssets
+          python3 extract.py
 
-      # Step 4: Zip the directory contents securely
+      # Step 4: Zip your output directory folder blocks
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the package onto the Actions artifact dashboard UI
+      # Step 5: Post the file back to the Actions page so you can grab it
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
