@@ -7,29 +7,38 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Bring your uploaded Assets.car file into the runner environment
-      - name: Checkout Repository Content
+      # Step 1: Bring your own repository files (Assets.car) into the workspace runner
+      - name: Checkout Your Repository Content
         uses: actions/checkout@v4
+        with:
+          path: main-repo
 
-      # Step 2: Clone and compile the tool straight from source to match the ARM64 chip
+      # Step 2: Safely pull down the extractor tool code using a native action checkout block
+      - name: Checkout Extractor Tool Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'bartoszj/acextract'
+          submodules: 'recursive'
+          path: tool-source
+
+      # Step 3: Compile the native tool to match the ARM64 chip natively
       - name: Build Local ARM64 Asset Extractor
         run: |
           mkdir ExtractedAssets
-          git clone https://github.com tool-source
           cd tool-source
           swift build -c release
 
-      # Step 3: Run the freshly compiled tool natively 
+      # Step 4: Run the freshly compiled tool natively 
       - name: Execute Native Extraction
         run: |
-          ./tool-source/.build/release/acextract -i Assets.car -o ExtractedAssets
+          ./tool-source/.build/release/acextract -i main-repo/Assets.car -o ExtractedAssets
 
-      # Step 4: Package everything into a zip bundle
+      # Step 5: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the package onto your GitHub web interface dashboard
+      # Step 6: Post the package onto your GitHub web interface dashboard
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
