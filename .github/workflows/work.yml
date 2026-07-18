@@ -7,31 +7,29 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Bring your own repository files (Assets.car) into the workspace runner
+      # Step 1: Copy your own repository files (Assets.car) into the workspace runner
       - name: Checkout Your Repository Content
         uses: actions/checkout@v4
-        with:
-          path: main-repo
 
-      # Step 2: Safely pull down the extractor tool code using a native action checkout block
-      - name: Checkout Extractor Tool Source
+      # Step 2: Use the native checkout block to fetch the tool source directly
+      - name: Fetch Extractor Tool Source
         uses: actions/checkout@v4
         with:
           repository: 'bartoszj/acextract'
           submodules: 'recursive'
           path: tool-source
 
-      # Step 3: Compile the native tool to match the ARM64 chip natively
-      - name: Build Local ARM64 Asset Extractor
+      # Step 3: Build using the repository's native Makefile layout
+      - name: Build Local ARM64 Asset Extractor via Makefile
         run: |
           mkdir ExtractedAssets
           cd tool-source
-          swift build -c release
+          make
 
       # Step 4: Run the freshly compiled tool natively 
       - name: Execute Native Extraction
         run: |
-          ./tool-source/.build/release/acextract -i main-repo/Assets.car -o ExtractedAssets
+          ./tool-source/acextract -i Assets.car -o ExtractedAssets
 
       # Step 5: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
