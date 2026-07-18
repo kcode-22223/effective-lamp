@@ -20,7 +20,7 @@ jobs:
         brew trust --formula 0xxd0/tap/cartool
         
         # 3. Force installation while overriding Apple's compilation sandbox restriction
-        HOMEBREW_NO_SANDBOX=1 brew install cartool --no-sandbox
+        brew install cartool
 
     - name: Step 2 - Execute Cartool Extract Sequence
       run: |
