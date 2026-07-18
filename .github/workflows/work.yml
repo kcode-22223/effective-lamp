@@ -14,6 +14,7 @@ jobs:
     - name: Step 1 - Install Cartool via Homebrew
       run: |
         # Pulls the exact homebrew formula repository shown in your screenshot
+        brew trust --formula 0xxd0/tap/cartool
         brew tap 0xxd0/tap
         brew install cartool
 
