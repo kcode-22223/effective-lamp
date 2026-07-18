@@ -15,8 +15,8 @@ jobs:
       - name: Build macOS Asset Extractor Tool
         run: |
           mkdir ExtractedAssets
-          git clone https://github.com tool-source
-          cd tool-source
+          git clone https://github.com/bartoszj/acextract
+          cd acextract
           swift build -c release
 
       # Step 3: Run the compiled utility against your catalog
