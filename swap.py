@@ -10,32 +10,30 @@ assets_catalog = 'Assets.xcassets'
 os.makedirs(assets_catalog, exist_ok=True)
 
 if os.path.exists(zip_path):
-    print("--- UNZIPPING APP IMAGES ---")
+    print("--- UNZIPPING GENUINE APP IMAGES ---")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
 
 if os.path.exists(extract_path):
-    print("--- CLEANING AND TRANSLATING TINKERER DATA ---")
+    print("--- MAPPING IMAGES INTO COMPILER CATALOG ---")
     for filename in os.listdir(extract_path):
         if filename.lower().endswith('.png'):
-            name_without_ext = os.path.splitext(filename)[0]
+            base_name = os.path.splitext(filename)[0]
             
-            # Remove the "_Normal" suffix added by the extraction tool
-            clean_name = name_without_ext.replace('_Normal', '')
+            # Clean off the Asset Catalog Tinkerer extraction text suffix markers safely
+            clean_name = base_name.replace('_Normal', '')
             
-            # Isolate scale properties
             scale = '1x'
-            if '@2x' in clean_name:
+            if '@2x' in clean_name: 
                 scale = '2x'
                 clean_name = clean_name.replace('@2x', '')
-            elif '@3x' in clean_name:
+            elif '@3x' in clean_name: 
                 scale = '3x'
                 clean_name = clean_name.replace('@3x', '')
-                
+            
             imageset_dir = f'{assets_catalog}/{clean_name}.imageset'
             os.makedirs(imageset_dir, exist_ok=True)
             
-            # Map clean target names
             target_filename = f'{clean_name}.png' if scale == '1x' else f'{clean_name}@{scale}.png'
             
             contents_path = f'{imageset_dir}/Contents.json'
@@ -45,10 +43,12 @@ if os.path.exists(extract_path):
             else:
                 contents = {'images': [], 'info': {'version': 1, 'author': 'xcode'}}
             
+            # Added a production asset block rule to block color conversion rendering
             contents['images'].append({
                 'idiom': 'universal', 
                 'scale': scale, 
-                'filename': target_filename
+                'filename': target_filename,
+                'uncompressed': True
             })
             
             with open(contents_path, 'w') as jf:
@@ -56,4 +56,4 @@ if os.path.exists(extract_path):
                 
             shutil.copy(os.path.join(extract_path, filename), os.path.join(imageset_dir, target_filename))
             
-    print("Structural translation completed successfully!")
+    print("Catalog structures successfully prepared!")
