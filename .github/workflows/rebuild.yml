@@ -1,105 +1,80 @@
-name: Rebuild Assets.car
-
-on:
-  workflow_dispatch:
-
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+name: Automate Samra Asset Replacement
+on: [workflow_dispatch]
 
 jobs:
-  rebuild:
-    runs-on: macos-latest
-
+  replace-asset:
+    runs-on: macos-14
     steps:
-
-      - name: Checkout repository
+      - name: Checkout Repository Files
         uses: actions/checkout@v4
 
-      - name: Verify required files
-        shell: bash
+      - name: Download and Install Samra App
         run: |
-          set -e
+          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
+          unzip Samra.zip
+          sudo mv Samra.app /Applications/
 
-          test -f catalog_manifest.json
-          test -f modified_images.zip
-          test -f scripts/rebuild_assets.py
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Extract ZIP
-        shell: bash
+      - name: Execute AppleScript GUI Automation
         run: |
-          rm -rf working_images
-          mkdir working_images
+          # Launch Samra into the background Window Server
+          open /Applications/Samra.app
+          sleep 3
 
-          unzip -q modified_images.zip -d working_images
+          osascript -e '
+            tell application "System Events"
+              tell process "Samra"
+                set frontmost to true
+                
+                # 1. Open the original Assets.car file
+                keystroke "o" using command down
+                delay 1
+                keystroke "'"$PWD"'/Assets.car"
+                delay 0.5
+                key code 36 -- (Press Enter)
+                delay 4 -- Allow time for the catalog structure to load into the GUI
 
-          rm -rf working_images/__MACOSX
+                tell window "Assets.car"
+                  # 2. Click the Search bar at the top of Samra to isolate the watermark
+                  # (Triggering Command+F focusing the search field natively)
+                  keystroke "f" using command down
+                  delay 0.5
+                  
+                  # Type the target asset name to filter the list view
+                  keystroke "watermark"
+                  delay 1.5
 
-      - name: Build XCAssets
-        shell: bash
-        run: |
-          python scripts/rebuild_assets.py
+                  # 3. Select the filtered asset block from the UI layout
+                  set targetRow to static text "watermark"
+                  select targetRow
+                  delay 1
 
-      - name: Show generated catalog
-        shell: bash
-        run: |
-          echo "Generated assets:"
-          find MockCatalog.xcassets
+                  # 4. Click the "Edit" button in the right-hand details pane
+                  click button "Edit"
+                  delay 1.5
+                end tell
 
-      - name: Compile Assets.car
-        shell: bash
-        run: |
+                # 5. Handle the native macOS file selection sheet
+                # Open the "Go to folder" manual path entry block
+                keystroke "G" using {command down, shift down}
+                delay 1
+                
+                # Input the path to your new watermark file
+                keystroke "'"$PWD"'/replacement_watermark.png"
+                delay 0.5
+                key code 36 -- (Press Enter to apply location)
+                delay 1
+                key code 36 -- (Press Enter a second time to confirm selection)
+                delay 2
 
-          mkdir -p output
+                # 6. Save changes cleanly back to the .car file structure
+                keystroke "s" using command down
+                delay 2
+              end tell
+            end tell
+          '
 
-          xcrun actool \
-            MockCatalog.xcassets \
-            --compile output \
-            --platform iphoneos \
-            --target-device iphone \
-            --target-device ipad \
-            --minimum-deployment-target 15.0 \
-            --warnings \
-            --errors \
-            --notices
-
-      - name: Verify Assets.car
-        shell: bash
-        run: |
-
-          if [ ! -f output/Assets.car ]; then
-            echo "Assets.car was not generated."
-            exit 1
-          fi
-
-          ls -lh output/Assets.car
-
-      - name: Upload Assets.car
+      - name: Export Finished File Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Assets.car
-          path: output/Assets.car
-          retention-days: 7
-
-      - name: Upload XCAssets
-        uses: actions/upload-artifact@v4
-        with:
-          name: XCAssets
-          path: MockCatalog.xcassets
-          retention-days: 7
-
-      - name: Upload Build Output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: BuildOutput
-          path: output
-          retention-days: 7
+          name: rebuilt-asset-catalog
+          path: Assets.car
