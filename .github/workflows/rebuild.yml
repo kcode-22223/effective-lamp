@@ -10,12 +10,17 @@ jobs:
 
       - name: Download and Install Samra v1.4.1
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
+          curl -L -o Samra.zip https://github.com
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
       - name: Configure Built-in macOS VNC Server
         run: |
+          # 1. Force macOS to accept standard legacy VNC authentication protocols 
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvnclegacy -vnclegacy yes
+
+          # 2. Re-apply access rights and lock down the password container
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
             -clientopts -setvncpw -vncpw password123 \
@@ -27,7 +32,6 @@ jobs:
           echo "👉 CONSOLE ACTION REQUIRED: COPY THE public tcp:// URL BELOW"
           echo "================================================================="
           
-          # Native zero-install SSH loop forwarding VNC screen traffic safely to the cloud
           ssh -p 443 \
             -o StrictHostKeyChecking=no \
             -o ConnectTimeout=10 \
