@@ -470,7 +470,7 @@ failed=0
 ###############################################################################
 
 for match in matches:
-```
+
     file = match["file"]
 
     asset = match["asset"]
@@ -852,7 +852,7 @@ for match in sorted(
             )
 
     })
-```
+
 with open(
 
     "match_report.json",
