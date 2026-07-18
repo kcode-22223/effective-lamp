@@ -8,17 +8,20 @@ jobs:
       - name: Checkout Repository Files
         uses: actions/checkout@v4
 
-      - name: Download and Install Samra App
+      - name: Download and Install Latest Samra App
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
+          curl -L -o Samra.zip https://github.com
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
-      - name: Execute Robust AppleScript GUI Automation
+      - name: Execute Clipboard-Safe AppleScript GUI Automation
         run: |
           killall Samra || true
           open /Applications/Samra.app
           sleep 5
+
+          # 1. Load the original file path directly into the macOS clipboard
+          echo -n "$PWD/Assets.car" | pbcopy
 
           osascript -e '
             tell application "System Events"
@@ -26,62 +29,63 @@ jobs:
                 set frontmost to true
                 delay 1.5
                 
-                # 1. Clear the Welcome Screen
+                # 2. Clear the Welcome Screen
                 key code 48 -- (Press Tab to highlight "Open Assets File")
                 delay 0.5
-                key code 49 -- (Press Spacebar to execute click)
+                key code 49 -- (Press Spacebar to click it)
                 delay 2
                 
-                # 2. Select the local Assets.car file
+                # 3. Paste the Assets.car path from clipboard
                 keystroke "G" using {command down, shift down}
-                delay 1.5
-                keystroke "'"$PWD"'/Assets.car"
+                delay 2
+                keystroke "v" using command down -- (Paste the path)
+                delay 2 -- Give macOS plenty of time to render the pasted text
+                key code 36 -- (Press Enter to confirm path)
+                delay 2
+                key code 36 -- (Press Enter to open file)
+                
+                # Extended pause to completely generate large catalog elements
+                delay 12 
+
+                # 4. Search and select "watermark"
+                tell window 1
+                  keystroke "f" using command down
+                  delay 1.5
+                  keystroke "watermark"
+                  delay 4 -- Let search fully filter the list view
+
+                  # Tab over to the filtered entry and highlight it
+                  key code 48 -- (Press Tab)
+                  delay 1
+                  key code 49 -- (Press Spacebar to select item)
+                  delay 2
+
+                  # Tab over to the details pane "Edit" button
+                  key code 48 -- (Press Tab)
+                  delay 0.5
+                  key code 48 -- (Press Tab)
+                  delay 0.5
+                  key code 49 -- (Press Spacebar to click "Edit")
+                  delay 3
+                end tell
+
+                # 5. Load the replacement image path into clipboard dynamically
+                do shell script "echo -n " & quoted form of "'"$PWD"'/replacement_watermark.png" & " | pbcopy"
                 delay 1
-                key code 36 -- (Press Enter to confirm directory)
-                delay 1.5
-                key code 36 -- (Press Enter to load file)
-                
-                # Give the virtual system breathing room to build the file catalog tree
-                delay 10 
 
-                # 3. Handle Workspace Filtering & Asset Selection
-                # Open the search field
-                keystroke "f" using command down
-                delay 1.5
-                
-                # Type out the asset keyword
-                keystroke "watermark"
-                delay 3 -- Wait for the interface to filter down to the entry
-
-                # NAVIGATE PAST SYSTEM SELECTION LIMITS:
-                # Tab moves focus out of the search field and drops it directly onto the isolated search result
-                key code 48 -- (Press Tab)
-                delay 0.5
-                key code 49 -- (Press Spacebar to select the watermark row)
-                delay 1.5
-
-                # 4. Trigger the Edit Action
-                # Tab twice more to hop over to the "Edit" button in the right details panel
-                key code 48 -- (Press Tab)
-                delay 0.5
-                key code 48 -- (Press Tab)
-                delay 0.5
-                key code 49 -- (Press Spacebar to click "Edit")
-                delay 2.5
-
-                # 5. Inject the Replacement Image File
+                # 6. Paste the replacement image path
                 keystroke "G" using {command down, shift down}
-                delay 1.5
-                keystroke "'"$PWD"'/replacement_watermark.png"
-                delay 1
-                key code 36 -- (Confirm source path input)
-                delay 1.5
-                key code 36 -- (Confirm selection in picker)
-                delay 4
+                delay 2
+                keystroke "v" using command down -- (Paste the image path)
+                delay 2
+                key code 36 -- (Confirm path input)
+                delay 2
+                key code 36 -- (Confirm file pick)
+                delay 5 -- Allow Samra to complete internal database swap
 
-                # 6. Save modifications directly back to the .car file structure
+                # 7. Save modifications back to the .car file structure
                 keystroke "s" using command down
-                delay 2
+                delay 3
               end tell
             end tell
           '
