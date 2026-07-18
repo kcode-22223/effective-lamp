@@ -14,13 +14,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Clone and build cartool directly from source (Bypasses Homebrew bugs)
+      # 2. Clone and build cartool directly from source (Fixed URL)
       - name: Clone and Compile cartool
         run: |
-          git clone https://github.com
+          git clone https://github.com/showxu/cartools
           cd cartool
           xcodebuild -target cartool -configuration Release DBG_ROOT=/
-          # Move the compiled binary to a globally accessible folder
           sudo cp build/Release/cartool /usr/local/bin/cartool
 
       # 3. Create the output folder and run the extraction
