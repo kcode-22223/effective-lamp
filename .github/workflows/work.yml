@@ -7,27 +7,29 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Bring your uploaded files (Assets.car and acextract) into the workspace
+      # Step 1: Bring your uploaded Assets.car file into the runner environment
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Set execution permissions
-      - name: Grant Execution Permission
+      # Step 2: Clone and compile the tool straight from source to match the ARM64 chip
+      - name: Build Local ARM64 Asset Extractor
         run: |
           mkdir ExtractedAssets
-          chmod +x acextract
+          git clone https://github.com tool-source
+          cd tool-source
+          swift build -c release
 
-      # Step 3: Force the Mac M-series runner to run the Intel binary via Rosetta translation
-      - name: Execute Extraction via Translated Architecture
+      # Step 3: Run the freshly compiled tool natively 
+      - name: Execute Native Extraction
         run: |
-          arch -x86_64 ./acextract -i Assets.car -o ExtractedAssets
+          ./tool-source/.build/release/acextract -i Assets.car -o ExtractedAssets
 
-      # Step 4: Zip everything up
+      # Step 4: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the file as a downloadable artifact
+      # Step 5: Post the package onto your GitHub web interface dashboard
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
