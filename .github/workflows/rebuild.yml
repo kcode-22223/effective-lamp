@@ -10,63 +10,69 @@ jobs:
 
       - name: Download and Install Samra App
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
+          curl -L -o Samra.zip https://github.com
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
-      - name: Execute AppleScript GUI Automation
+      - name: Execute Robust AppleScript GUI Automation
         run: |
-          # Launch Samra into the background Window Server
+          killall Samra || true
           open /Applications/Samra.app
-          sleep 3
+          sleep 4
 
           osascript -e '
             tell application "System Events"
               tell process "Samra"
                 set frontmost to true
+                delay 1
                 
-                # 1. Open the original Assets.car file
-                keystroke "o" using command down
+                # 1. Bypass the Welcome Screen by clicking "Open Assets File"
+                tell window 1
+                  click static text "Open Assets File"
+                end tell
+                delay 1.5
+                
+                # 2. Input the absolute path to your Assets.car file
+                keystroke "G" using {command down, shift down}
                 delay 1
                 keystroke "'"$PWD"'/Assets.car"
                 delay 0.5
-                key code 36 -- (Press Enter)
-                delay 4 -- Allow time for the catalog structure to load into the GUI
-
-                tell window "Assets.car"
-                  # 2. Click the Search bar at the top of Samra to isolate the watermark
-                  # (Triggering Command+F focusing the search field natively)
-                  keystroke "f" using command down
-                  delay 0.5
-                  
-                  # Type the target asset name to filter the list view
-                  keystroke "watermark"
-                  delay 1.5
-
-                  # 3. Select the filtered asset block from the UI layout
-                  set targetRow to static text "watermark"
-                  select targetRow
-                  delay 1
-
-                  # 4. Click the "Edit" button in the right-hand details pane
-                  click button "Edit"
-                  delay 1.5
-                end tell
-
-                # 5. Handle the native macOS file selection sheet
-                # Open the "Go to folder" manual path entry block
-                keystroke "G" using {command down, shift down}
-                delay 1
-                
-                # Input the path to your new watermark file
-                keystroke "'"$PWD"'/replacement_watermark.png"
-                delay 0.5
                 key code 36 -- (Press Enter to apply location)
                 delay 1
-                key code 36 -- (Press Enter a second time to confirm selection)
-                delay 2
+                key code 36 -- (Press Enter again to confirm file pick)
+                
+                # CRITICAL: Allow time for a large catalog to fully generate its UI
+                delay 8 
 
-                # 6. Save changes cleanly back to the .car file structure
+                # 3. Target the main application workspace window now that it is open
+                tell window 1
+                  # Target the search bar and filter for "watermark"
+                  keystroke "f" using command down
+                  delay 1
+                  keystroke "watermark"
+                  delay 2 -- Let search indexing filter the row elements
+
+                  # Highlight and select the structural element row
+                  set targetRow to static text "watermark"
+                  select targetRow
+                  delay 1.5
+
+                  # Click the visual "Edit" button in the details panel
+                  click button "Edit"
+                  delay 2
+                end tell
+
+                # 4. Handle the file picker sheet for the replacement image
+                keystroke "G" using {command down, shift down}
+                delay 1.5
+                keystroke "'"$PWD"'/replacement_watermark.png"
+                delay 1
+                key code 36 -- (Confirm path input)
+                delay 1.5
+                key code 36 -- (Confirm target selection)
+                delay 3
+
+                # 5. Save the corrected data modifications
                 keystroke "s" using command down
                 delay 2
               end tell
