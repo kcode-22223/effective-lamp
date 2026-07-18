@@ -10,31 +10,27 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1. Pull down your repository code
+      # 1. Pull down your repository code containing Assets.car
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Clone and build cartools using direct target compilation
+      # 2. Clone and build cartools using pure Swift Package Manager
       - name: Clone and Compile cartools
         run: |
           git clone https://github.com/showxu/cartools
           cd cartools
-          # Force resolution of package dependencies first
-          xcodebuild -resolvePackageDependencies -project Cartools.xcodeproj
-          # Build via the direct target inside the project file to bypass missing scheme errors
-          xcodebuild -project Cartools.xcodeproj -target cartooldt -configuration Release DBG_ROOT=/
-          # Copy the binary out of the build directory
-          sudo cp build/Release/cartooldt /usr/local/bin/cartool
+          # Build the command-line executable using native Swift PM
+          swift build -c release --product cartooldt
+          # Copy the binary out of the hidden swift build folder to global path
+          sudo cp .build/release/cartooldt /usr/local/bin/cartool
 
-      # 3. Create the output folder and run the extraction
-      # Replace 'path/to/Assets.car' with the actual path inside your repository
+      # 3. Create the output folder and run extraction from the root file
       - name: Extract Images
         run: |
           mkdir -p extracted_images
-          cartool path/to/Assets.car extracted_images
+          cartool ./Assets.car extracted_images
 
       # 4. Save your extracted images so you can download them from the UI
-      # Using 'continue-on-error' helps troubleshoot if pathing is off
       - name: Upload Extracted Images Artifact
         uses: actions/upload-artifact@v4
         with:
