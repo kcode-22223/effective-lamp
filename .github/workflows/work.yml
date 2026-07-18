@@ -7,51 +7,29 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Copy your Assets.car file from your repo into the runner
+      # Step 1: Bring your uploaded Assets.car file into the runner environment
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Use Python to dynamically build an execution helper
-      - name: Build Inline Apple Catalog Extractor
+      # Step 2: Clone and compile the genuine native macOS tool
+      - name: Build macOS Asset Extractor Tool
         run: |
           mkdir ExtractedAssets
-          cat << 'EOF' > extract.py
-          import ctypes
-          import sys
-          import os
+          git clone https://github.com tool-source
+          cd tool-source
+          swift build -c release
 
-          # Link directly into macOS's native proprietary Asset Catalog engine
-          try:
-              coreui = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/CoreUI.framework/CoreUI')
-              
-              # Set up Apple's private structural decoding interfaces
-              coreui.CUIUnpackThemeStore.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
-              coreui.CUIUnpackThemeStore.restype = ctypes.c_bool
-              
-              car_path = b"Assets.car"
-              out_path = b"ExtractedAssets"
-              
-              print("Processing theme store layers natively...")
-              success = coreui.CUIUnpackThemeStore(car_path, out_path)
-              if success:
-                  print("Extraction completed successfully!")
-              else:
-                  print("Apple engine failed to process the database layers.")
-          except Exception as e:
-              print(f"Execution Error: {e}")
-          EOF
-
-      # Step 3: Run the native extraction logic
-      - name: Extract Images Natively via CoreUI
+      # Step 3: Run the compiled utility against your catalog
+      - name: Execute Extraction via Native Tool
         run: |
-          python3 extract.py
+          ./tool-source/.build/release/acextract -i Assets.car -o ExtractedAssets
 
-      # Step 4: Zip your output directory folder blocks
+      # Step 4: Bundle the output directory into a single package
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the file back to the Actions page so you can grab it
+      # Step 5: Post the package onto your GitHub web interface dashboard
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
