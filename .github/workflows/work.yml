@@ -25,7 +25,7 @@ jobs:
           unzip modified_images.zip -d working_images_folder
           rm -rf working_images_folder/__MACOSX
 
-      # 3. Dynamic Python Catalog Formatter with Substring Matching
+      # 3. Dynamic Python Catalog Formatter with Deep Directory Traversal
       - name: Structure Catalog From Manifest JSON
         run: |
           python3 -c "
@@ -45,8 +45,15 @@ jobs:
           os.makedirs(catalog_dir, exist_ok=True)
           items = manifest if isinstance(manifest, list) else manifest.get('images', manifest.get('assets', []))
 
-          # Get a clean list of files inside the unzipped folder
-          unpacked_files = [f for f in os.listdir(source_folder) if not f.startswith('.')]
+          # Deep-scan your unpacked zip workspace to map ALL files across any nested folder layers
+          all_unpacked_files = []
+          for root, dirs, files in os.walk(source_folder):
+              for file in files:
+                  if not file.startswith('.'):
+                      # Save the absolute path along with the filename
+                      all_unpacked_files.append((file, os.path.join(root, file)))
+
+          print(f'Total valid files found in unzipped workspace: {len(all_unpacked_files)}')
 
           for item in items:
               name = item.get('Name')
@@ -57,32 +64,27 @@ jobs:
                   continue
 
               matched_source_file = None
-              found_ext = None
+              found_ext = '.png'
 
-              # Search using clean case-insensitive substring prefixes
-              for filename in unpacked_files:
-                  # Check if the file name starts exactly with the manifest token name
+              # Search using clean case-insensitive prefix logic over our deep file catalog map
+              for filename, absolute_path in all_unpacked_files:
                   if filename.lower().startswith(name.lower()):
-                      # Secure absolute file extension fallback handling (.gif, .png, etc.)
-                      _, ext_part = os.path.splitext(filename.lower())
-                      
-                      # Keep looking if it is a secondary nested artifact
-                      if ext_part in ['.png', '.gif', '.jpg', '.jpeg', '.data']:
-                          matched_source_file = os.path.join(source_folder, filename)
-                          found_ext = os.path.splitext(filename)[1] # Extract true extension case
-                          break
+                      matched_source_file = absolute_path
+                      # Extract the extension component cleanly
+                      _, found_ext = os.path.splitext(filename)
+                      break
 
               if not matched_source_file:
                   print(f'Warning: Missing or unmapped asset file for token: {name}')
                   continue
 
-              # Assign asset types dynamically based on manifest definitions
+              # Assign asset folder configurations dynamically
               is_image = asset_type.lower() == 'image' or 'png' in uti or 'image' in uti
               set_ext = '.imageset' if is_image else '.dataset'
               target_set_dir = os.path.join(catalog_dir, f'{name}{set_ext}')
               os.makedirs(target_set_dir, exist_ok=True)
 
-              # Format standard output names matching native deployment formats
+              # Strip trailing modifications for final clean production compilation
               target_file_name = f'{name}{found_ext}'
               shutil.copy(matched_source_file, os.path.join(target_set_dir, target_file_name))
 
@@ -104,7 +106,7 @@ jobs:
               with open(os.path.join(target_set_dir, 'Contents.json'), 'w') as out_f:
                   json.dump(contents, out_f, indent=2)
 
-          print('Mapping completed! Suffix constraints bypassed successfully.')
+          print('Mapping completed! Folder structures bypassed successfully.')
           "
 
       # 4. Recompile the structured directory using Apple's official actool compiler
