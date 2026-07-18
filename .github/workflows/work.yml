@@ -18,6 +18,7 @@ jobs:
       - name: Install cartool via Homebrew
         run: |
           brew tap showxu/tap
+          brew trust showxu/tap
           brew install cartool
 
       # 3. Create the output folder and run the extraction
