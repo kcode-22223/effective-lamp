@@ -18,18 +18,18 @@ jobs:
           repository: 'insidegui/AssetCatalogTinkerer'
           path: tool-source
 
-      # Step 3: Compile the native command-line companion tool (act)
+      # Step 3: Use the perfect, working compilation command that succeeded in your screenshot
       - name: Compile Tinkerer CLI Tool
         run: |
           mkdir ExtractedAssets
           cd tool-source
-          # Builds the command-line app using standard relative paths
-          xcodebuild -project "Asset Catalog Tinkerer.xcodeproj" -scheme act -configuration Release SYMROOT=build
+          xcodebuild -project "Asset Catalog Tinkerer.xcodeproj" -scheme act -configuration Release DSTROOT=./build install
 
-      # Step 4: Run the freshly compiled modern binary natively from the true Xcode build location
+      # Step 4: Locate the compiled binary using wildcards directly out of Xcode's true output folder
       - name: Execute Native Extraction via act
         run: |
-          ./tool-source/build/Release/act export -i Assets.car -o ExtractedAssets
+          # Finds the compiled 'act' binary inside Xcode's DerivedData install caches and executes it
+          ~/Library/Developer/Xcode/DerivedData/Asset_Catalog_Tinkerer-*/Build/Intermediates.noindex/ArchiveIntermediates/act/InstallationBuildProductsLocation/usr/local/bin/act export -i Assets.car -o ExtractedAssets
 
       # Step 5: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
