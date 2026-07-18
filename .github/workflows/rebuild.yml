@@ -14,17 +14,33 @@ jobs:
           unzip Samra.zip
           sudo mv Samra.app /Applications/
 
+      - name: Install and Initialize Virtual Frame Display Engine
+        run: |
+          # 1. Install xquartz and x11 tools to provide a visual canvas framework
+          brew install --cask xquartz || true
+          brew install imwheel xdotool || true
+          
+          # 2. Spin up a persistent virtual display layout screen (1280x1024 resolution, 24-bit depth)
+          Xvfb :1 -screen 0 1280x1024x24 &
+          export DISPLAY=:1
+          echo "DISPLAY=:1" >> $GITHUB_ENV
+
       - name: Configure Built-in macOS VNC Server
         run: |
-          # 1. Force macOS to accept standard legacy VNC authentication protocols 
+          # 3. Force legacy VNC credentials on our newly created virtual display frame
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvnclegacy -vnclegacy yes
 
-          # 2. Re-apply access rights and lock down the password container
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
             -clientopts -setvncpw -vncpw password123 \
             -restart -agent -privs -all
+
+      - name: Launch Samra Workspace directly into Virtual Display
+        run: |
+          # 4. Launch Samra explicitly attached to our display layout channel so it renders visually
+          DISPLAY=:1 open /Applications/Samra.app &
+          sleep 3
 
       - name: Launch Web Proxy Display Tunnel
         run: |
