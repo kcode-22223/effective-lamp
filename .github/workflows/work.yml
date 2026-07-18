@@ -7,27 +7,27 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Bring your uploaded Assets.car and acextract binary into the runner
+      # Step 1: Bring your uploaded files (Assets.car and acextract) into the workspace
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Restore the execution permission that Git stripped away
+      # Step 2: Set execution permissions
       - name: Grant Execution Permission
         run: |
           mkdir ExtractedAssets
           chmod +x acextract
 
-      # Step 3: Run your repository's native binary against the catalog
-      - name: Execute Extraction via Local Binary
+      # Step 3: Force the Mac M-series runner to run the Intel binary via Rosetta translation
+      - name: Execute Extraction via Translated Architecture
         run: |
-          ./acextract -i Assets.car -o ExtractedAssets
+          arch -x86_64 ./acextract -i Assets.car -o ExtractedAssets
 
-      # Step 4: Package everything into a zip bundle
+      # Step 4: Zip everything up
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 5: Post the package onto your GitHub web interface dashboard
+      # Step 5: Post the file as a downloadable artifact
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
