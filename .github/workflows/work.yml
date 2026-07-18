@@ -1,28 +1,36 @@
 name: Extract Apple Assets
 on:
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   unpack_assets:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Tell GitHub to copy your repository files (Assets.car) into the runner machine
+      # Step 1: Clone the repository files into the action workspace runner
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Unpack the catalog using Apple's native command-line utility
-      - name: Unpack Catalog via Apple Assetutil
+      # Step 2: Download and compile the community cartool script natively
+      - name: Setup Apple Cartool Extractor Engine
         run: |
           mkdir ExtractedAssets
-          assetutil --extract ExtractedAssets Assets.car
+          # Download the trusted cross-compiled utility
+          curl -L "https://githubusercontent.com" -o main.m
+          # Compile it instantly into a local macOS app container executable
+          clang -framework Foundation -framework AppKit main.m -o cartool
 
-      # Step 3: Package the extracted items into a zip bundle
+      # Step 3: Run the extraction logic targeting your uploaded assets file
+      - name: Extract Images from Asset Catalog Archive
+        run: |
+          ./cartool Assets.car ExtractedAssets
+
+      # Step 4: Zip the directory contents securely
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
 
-      # Step 4: Upload the output archive so you can download it via the GitHub website interface
+      # Step 5: Post the package onto the Actions artifact dashboard UI
       - name: Upload Output Assets to GitHub UI
         uses: actions/upload-artifact@v4
         with:
