@@ -11,7 +11,7 @@ jobs:
       - name: Download Asset Editing Tools
         run: |
           # Downloads ThemeEngine
-          curl -L -o ThemeEngine.zip https://github.com
+          curl -L -o ThemeEngine.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
           unzip ThemeEngine.zip -d /Applications/ || true
           
           # Downloads Samra as a backup option
