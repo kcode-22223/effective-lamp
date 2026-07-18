@@ -1,147 +1,105 @@
-name: Rebuild Custom Assets via Manifest Entry Mapping
+name: Rebuild Assets.car
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
 jobs:
-  build-car:
+  rebuild:
     runs-on: macos-latest
 
     steps:
-      # 1. Pull down your repository code containing catalog_manifest.json and modified_images.zip
-      - name: Checkout Repository
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Unzip your updated images into a clean working directory
-      - name: Unpack Modified Images
+      - name: Verify required files
+        shell: bash
         run: |
-          mkdir -p working_images_folder
-          if [ ! -f "modified_images.zip" ]; then
-            echo "Error: modified_images.zip not found in the root of the repository!"
+          set -e
+
+          test -f catalog_manifest.json
+          test -f modified_images.zip
+          test -f scripts/rebuild_assets.py
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract ZIP
+        shell: bash
+        run: |
+          rm -rf working_images
+          mkdir working_images
+
+          unzip -q modified_images.zip -d working_images
+
+          rm -rf working_images/__MACOSX
+
+      - name: Build XCAssets
+        shell: bash
+        run: |
+          python scripts/rebuild_assets.py
+
+      - name: Show generated catalog
+        shell: bash
+        run: |
+          echo "Generated assets:"
+          find MockCatalog.xcassets
+
+      - name: Compile Assets.car
+        shell: bash
+        run: |
+
+          mkdir -p output
+
+          xcrun actool \
+            MockCatalog.xcassets \
+            --compile output \
+            --platform iphoneos \
+            --target-device iphone \
+            --target-device ipad \
+            --minimum-deployment-target 15.0 \
+            --warnings \
+            --errors \
+            --notices
+
+      - name: Verify Assets.car
+        shell: bash
+        run: |
+
+          if [ ! -f output/Assets.car ]; then
+            echo "Assets.car was not generated."
             exit 1
           fi
-          unzip modified_images.zip -d working_images_folder
-          rm -rf working_images_folder/__MACOSX
 
-      # 3. Dynamic Python Parser targeting the exact entry structure
-      - name: Map and Pair Entries Natively
-        run: |
-          python3 -c "
-          import os, json, shutil
+          ls -lh output/Assets.car
 
-          manifest_path = 'catalog_manifest.json'
-          source_folder = 'working_images_folder'
-          catalog_dir = 'MockCatalog.xcassets'
-
-          if not os.path.exists(manifest_path):
-              print('Error: catalog_manifest.json not found!')
-              exit(1)
-
-          with open(manifest_path, 'r') as f:
-              manifest = json.load(f)
-
-          os.makedirs(catalog_dir, exist_ok=True)
-          items = manifest if isinstance(manifest, list) else manifest.get('images', manifest.get('assets', []))
-
-          # Deep-scan unpacked zip directory paths
-          all_unpacked_files = []
-          for root, dirs, files in os.walk(source_folder):
-              for file in files:
-                  if not file.startswith('.'):
-                      all_unpacked_files.append((file, os.path.join(root, file)))
-
-          print(f'Total unpacked files indexed: {len(all_unpacked_files)}')
-
-          for entry in items:
-              # Targets the specific entry key requested
-              name = entry.get('Name')
-              if not name:
-                  continue
-
-              matched_source_file = None
-              found_ext = '.png'
-
-              # Match the file name prefix directly to the entry token
-              for filename, absolute_path in all_unpacked_files:
-                  if filename.lower().startswith(name.lower()):
-                      matched_source_file = absolute_path
-                      _, found_ext = os.path.splitext(filename)
-                      break
-
-              if not matched_source_file:
-                  print(f'Warning: No file found to match entry named: {name}')
-                  continue
-
-              # Read metadata properties from the exact matched entry
-              uti = entry.get('UTI', 'public.data')
-              asset_type = entry.get('AssetType', 'Data')
-              idiom = entry.get('Idiom', 'universal')
-              scale_num = entry.get('Scale', 1)
-              
-              # Standardize scale formatting
-              scale_str = f'{int(scale_num)}x' if scale_num in [1, 2, 3] else '1x'
-
-              # Separate image resources from binary dataset blobs based on entry keys
-              is_image = asset_type.lower() == 'image' or 'png' in uti.lower() or 'image' in uti.lower()
-              set_ext = '.imageset' if is_image else '.dataset'
-              target_set_dir = os.path.join(catalog_dir, f'{name}{set_ext}')
-              os.makedirs(target_set_dir, exist_ok=True)
-
-              # Strip tracking modifiers for clean final output compilation
-              target_file_name = f'{name}{found_ext}'
-              shutil.copy(matched_source_file, os.path.join(target_set_dir, target_file_name))
-
-              # Build Contents.json by mirroring the exact fields found in the entry
-              contents = {
-                  'info': {'version': 1, 'author': 'xcode'}
-              }
-              
-              if is_image:
-                  contents['images'] = [
-                      {
-                          'idiom': idiom,
-                          'filename': target_file_name,
-                          'scale': scale_str
-                      }
-                  ]
-              else:
-                  contents['data'] = [
-                      {
-                          'idiom': idiom,
-                          'filename': target_file_name,
-                          'universal-type-identifier': uti
-                      }
-                  ]
-
-              # If the entry has extra fields like 'State' or 'Value', preserve them as properties
-              if 'State' in entry or 'Value' in entry:
-                  contents['properties'] = {}
-                  if 'State' in entry:
-                      contents['properties']['state'] = entry['State']
-                  if 'Value' in entry:
-                      contents['properties']['value'] = entry['Value']
-
-              with open(os.path.join(target_set_dir, 'Contents.json'), 'w') as out_f:
-                  json.dump(contents, out_f, indent=2)
-
-          print('Pairing process complete! Every file linked to its exact manifest entry attributes.')
-          "
-
-      # 4. Recompile the structured directory using Apple's official actool compiler
-      - name: Compile Assets.car
-        run: |
-          mkdir -p output_compiled_car
-          xcrun actool MockCatalog.xcassets \
-            --compile output_compiled_car \
-            --platform iphoneos \
-            --minimum-deployment-target 15.0
-            
-      # 5. Save your rebuilt binary file so you can retrieve it from the UI
-      - name: Upload Rebuilt Assets.car Artifact
+      - name: Upload Assets.car
         uses: actions/upload-artifact@v4
         with:
-          name: rebuilt-production-car
-          path: output_compiled_car/Assets.car
-          retention-days: 5
+          name: Assets.car
+          path: output/Assets.car
+          retention-days: 7
+
+      - name: Upload XCAssets
+        uses: actions/upload-artifact@v4
+        with:
+          name: XCAssets
+          path: MockCatalog.xcassets
+          retention-days: 7
+
+      - name: Upload Build Output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildOutput
+          path: output
+          retention-days: 7
