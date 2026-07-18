@@ -3,23 +3,25 @@ name: Extract Assets from CAR File
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # Allows manual trigger via GitHub website UI
+  workflow_dispatch:
 
 jobs:
   extract:
-    runs-on: macos-latest # Required for CoreUI/Private framework execution
+    runs-on: macos-latest
 
     steps:
       # 1. Pull down your repository code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Set up the cartool tool via Homebrew tap
-      - name: Install cartool via Homebrew
+      # 2. Clone and build cartool directly from source (Bypasses Homebrew bugs)
+      - name: Clone and Compile cartool
         run: |
-          brew tap showxu/tap
-          brew trust showxu/tap
-          brew install cartool
+          git clone https://github.com
+          cd cartool
+          xcodebuild -target cartool -configuration Release DBG_ROOT=/
+          # Move the compiled binary to a globally accessible folder
+          sudo cp build/Release/cartool /usr/local/bin/cartool
 
       # 3. Create the output folder and run the extraction
       # Replace 'path/to/Assets.car' with the actual path inside your repository
