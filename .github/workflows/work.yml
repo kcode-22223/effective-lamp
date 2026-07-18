@@ -14,23 +14,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Clone and build cartools using pure Swift Package Manager
-      - name: Clone and Compile cartools
+      # 2. Download and unzip the pre-built macOS app package
+      - name: Download Pre-built Release
         run: |
-          git clone https://github.com/showxu/cartools
-          cd cartools
-          # Build the command-line executable using native Swift PM
-          swift build -c release --product cartooldt
-          # Copy the binary out of the hidden swift build folder to global path
-          sudo cp .build/release/cartooldt /usr/local/bin/cartool
+          curl -L -o release.zip https://github.com/showxu/cartools/releases/download/1.0.0-alpha/Final.Car.Pro.app.zip
+          unzip release.zip -d extracted_app
 
-      # 3. Create the output folder and run extraction from the root file
+      # 3. Target the CLI binary nested inside the .app bundle directory to extract images
       - name: Extract Images
         run: |
           mkdir -p extracted_images
-          cartool ./Assets.car extracted_images
+          # Execute the hidden command line binary found inside the app structure
+          ./extracted_app/Final.Car.Pro.app/Contents/MacOS/cartooldt ./Assets.car extracted_images
 
-      # 4. Save your extracted images so you can download them from the UI
+      # 4. Save your extracted images as a downloadable artifact
       - name: Upload Extracted Images Artifact
         uses: actions/upload-artifact@v4
         with:
