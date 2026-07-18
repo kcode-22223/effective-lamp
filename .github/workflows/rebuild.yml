@@ -26,54 +26,60 @@ jobs:
                 set frontmost to true
                 delay 1.5
                 
-                # 1. Bypass Welcome Screen via Keyboard Navigation
-                # Tab moves focus to the first interactive menu element ("Open Assets File")
-                key code 48 -- (Press Tab)
+                # 1. Clear the Welcome Screen
+                key code 48 -- (Press Tab to highlight "Open Assets File")
                 delay 0.5
-                key code 49 -- (Press Spacebar to click it)
+                key code 49 -- (Press Spacebar to execute click)
                 delay 2
                 
-                # 2. Open standard macOS panel navigation to find Assets.car
+                # 2. Select the local Assets.car file
                 keystroke "G" using {command down, shift down}
                 delay 1.5
                 keystroke "'"$PWD"'/Assets.car"
                 delay 1
-                key code 36 -- (Press Enter to apply location)
+                key code 36 -- (Press Enter to confirm directory)
                 delay 1.5
-                key code 36 -- (Press Enter again to open the file)
+                key code 36 -- (Press Enter to load file)
                 
-                # Allow time for a large catalog to fully generate its UI
+                # Give the virtual system breathing room to build the file catalog tree
                 delay 10 
 
-                # 3. Target the main application workspace window
-                tell window 1
-                  # Open search bar and type "watermark"
-                  keystroke "f" using command down
-                  delay 1
-                  keystroke "watermark"
-                  delay 3 -- Let search indexing filter the row elements
+                # 3. Handle Workspace Filtering & Asset Selection
+                # Open the search field
+                keystroke "f" using command down
+                delay 1.5
+                
+                # Type out the asset keyword
+                keystroke "watermark"
+                delay 3 -- Wait for the interface to filter down to the entry
 
-                  # Highlight and select the structural element row
-                  set targetRow to static text "watermark"
-                  select targetRow
-                  delay 1.5
+                # NAVIGATE PAST SYSTEM SELECTION LIMITS:
+                # Tab moves focus out of the search field and drops it directly onto the isolated search result
+                key code 48 -- (Press Tab)
+                delay 0.5
+                key code 49 -- (Press Spacebar to select the watermark row)
+                delay 1.5
 
-                  # Click the visual "Edit" button in the details panel
-                  click button "Edit"
-                  delay 2.5
-                end tell
+                # 4. Trigger the Edit Action
+                # Tab twice more to hop over to the "Edit" button in the right details panel
+                key code 48 -- (Press Tab)
+                delay 0.5
+                key code 48 -- (Press Tab)
+                delay 0.5
+                key code 49 -- (Press Spacebar to click "Edit")
+                delay 2.5
 
-                # 4. Handle the file picker sheet for the replacement image
+                # 5. Inject the Replacement Image File
                 keystroke "G" using {command down, shift down}
                 delay 1.5
                 keystroke "'"$PWD"'/replacement_watermark.png"
                 delay 1
-                key code 36 -- (Confirm path input)
+                key code 36 -- (Confirm source path input)
                 delay 1.5
-                key code 36 -- (Confirm target selection)
+                key code 36 -- (Confirm selection in picker)
                 delay 4
 
-                # 5. Save the corrected data modifications
+                # 6. Save modifications directly back to the .car file structure
                 keystroke "s" using command down
                 delay 2
               end tell
