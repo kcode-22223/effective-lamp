@@ -14,13 +14,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Clone and build cartool directly from source (Fixed URL)
-      - name: Clone and Compile cartool
+      # 2. Clone and build cartools directly from source (Fixed paths & scheme)
+      - name: Clone and Compile cartools
         run: |
-          git clone https://github.com/showxu/cartools
-          cd cartool
-          xcodebuild -target cartool -configuration Release DBG_ROOT=/
-          sudo cp build/Release/cartool /usr/local/bin/cartool
+          git clone https://github.com
+          cd cartools
+          # Build the command-line target specifically using the workspace
+          xcodebuild -workspace Cartools.xcworkspace -scheme cartooldt -configuration Release DBG_ROOT=/
+          # Copy the compiled binary out of the build directory to the global path
+          sudo cp build/Release/cartooldt /usr/local/bin/cartool
 
       # 3. Create the output folder and run the extraction
       # Replace 'path/to/Assets.car' with the actual path inside your repository
