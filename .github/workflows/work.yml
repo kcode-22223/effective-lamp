@@ -7,24 +7,22 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      # Step 1: Bring your uploaded Assets.car file into the runner environment
+      # Step 1: Bring your uploaded Assets.car and acextract binary into the runner
       - name: Checkout Repository Content
         uses: actions/checkout@v4
 
-      # Step 2: Clone and compile the genuine native macOS tool
-      - name: Build macOS Asset Extractor Tool
+      # Step 2: Restore the execution permission that Git stripped away
+      - name: Grant Execution Permission
         run: |
           mkdir ExtractedAssets
-          git clone https://github.com/bartoszj/acextract
-          cd acextract
-          swift build -c release
+          chmod +x acextract
 
-      # Step 3: Run the compiled utility against your catalog
-      - name: Execute Extraction via Native Tool
+      # Step 3: Run your repository's native binary against the catalog
+      - name: Execute Extraction via Local Binary
         run: |
-          ./tool-source/.build/release/acextract -i Assets.car -o ExtractedAssets
+          ./acextract -i Assets.car -o ExtractedAssets
 
-      # Step 4: Bundle the output directory into a single package
+      # Step 4: Package everything into a zip bundle
       - name: Bundle into a Downloadable ZIP File
         run: |
           zip -r extracted_images.zip ExtractedAssets
