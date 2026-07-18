@@ -1,4 +1,4 @@
-name: Extract Assets via Samra
+name: Extract Assets via Samra Source
 
 on:
   push:
@@ -13,29 +13,24 @@ jobs:
       # 1. Pull down your repository code containing Assets.car
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      # 2. Download and unpack Samra
-      # Using the official repository release package to skip code compilation
-      - name: Download Samra Toolchain
+        
+      # 2. Clone the Samra source repository files directly
+       Pentesting
+      - name: Clone Samra Source Repository
         run: |
-          curl -L -o Samra.zip https://github.com/NSAntoine/Samra/releases/download/1.4.1/Samra.app.zip
-          unzip Samra.zip -d samra_app
-
-      # 3. Trigger Samra's built-in extractutil command line tool
+          git clone --recursive https://github.com/NSAntoine/Samra
+          
+      # 3. Build and execute extractutil natively from source
       - name: Extract Images
         run: |
           mkdir -p extracted_images
+          cd Samra
           
-          # Target the hidden CLI binary nested inside the modern Samra app structure
-          SAMRA_CLI="./samra_app/Samra.app/Contents/MacOS/extractutil"
-          
-          # Force execution safety permissions
-          chmod +x "$SAMRA_CLI"
-          
-          # Run extraction: [binary] [input .car] [output directory]
-          "$SAMRA_CLI" ./Assets.car extracted_images
+          # Use Swift run to compile the exact target shown in your image 
+          # Arguments match lines 12-17 of the code snippet: <catalog-url> <directory-to-extract-to>
+          swift run extractutil ../Assets.car ../extracted_images
 
-      # 4. Package your extracted images for direct UI download
+      # 4. Save your extracted images so you can download them from the UI
       - name: Upload Extracted Images Artifact
         uses: actions/upload-artifact@v4
         with:
